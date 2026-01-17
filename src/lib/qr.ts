@@ -138,3 +138,35 @@ export function validateQRClientSide(
     // Client-side checks passed, needs server verification
     return { valid: true, status: 'SUCCESS' }
 }
+
+/**
+ * Simple helper to generate QR code data string
+ */
+export function generateQRCodeData(ticketId: string, eventId: string): string {
+    return `${eventId}_${ticketId}_${Date.now()}`
+}
+
+/**
+ * Simple helper to sign QR code data
+ */
+export function signQRCode(qrData: string): string {
+    return createHmac('sha256', QR_SECRET_KEY)
+        .update(qrData)
+        .digest('hex')
+}
+
+/**
+ * Generate QR code image as data URL
+ */
+export async function generateQRCodeImage(qrData: string): Promise<string> {
+    const qrImageDataUrl = await QRCode.toDataURL(qrData, {
+        errorCorrectionLevel: 'M',
+        width: 300,
+        margin: 2,
+        color: {
+            dark: '#000000',
+            light: '#ffffff',
+        },
+    })
+    return qrImageDataUrl
+}

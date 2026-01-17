@@ -1,0 +1,322 @@
+'use client'
+
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Html5Qrcode } from 'html5-qrcode'
+import {
+    Camera,
+    CameraOff,
+    CheckCircle,
+    XCircle,
+    AlertCircle,
+    Loader2,
+    RotateCcw,
+    Volume2,
+    VolumeX
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+
+interface ScanResult {
+    valid: boolean
+    status: string
+    message: string
+    ticketType?: string
+    attendee?: {
+        name: string | null
+        email: string | null
+    }
+    checkedInAt?: string
+}
+
+interface QRScannerProps {
+    eventId: string
+    onScanResult?: (result: ScanResult) => void
+}
+
+export function QRScanner({ eventId, onScanResult }: QRScannerProps) {
+    const [isScanning, setIsScanning] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+    const [lastResult, setLastResult] = useState<ScanResult | null>(null)
+    const [soundEnabled, setSoundEnabled] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const scannerRef = useRef<Html5Qrcode | null>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
+    const lastScannedRef = useRef<string | null>(null)
+    const cooldownRef = useRef<boolean>(false)
+
+    // Audio refs for feedback sounds
+    const successAudioRef = useRef<HTMLAudioElement | null>(null)
+    const errorAudioRef = useRef<HTMLAudioElement | null>(null)
+
+    useEffect(() => {
+        // Create audio elements
+        if (typeof window !== 'undefined') {
+            successAudioRef.current = new Audio('/sounds/success.mp3')
+            errorAudioRef.current = new Audio('/sounds/error.mp3')
+        }
+
+        return () => {
+            stopScanning()
+        }
+    }, [])
+
+    const playSound = useCallback((type: 'success' | 'error') => {
+        if (!soundEnabled) return
+
+        try {
+            const audio = type === 'success' ? successAudioRef.current : errorAudioRef.current
+            if (audio) {
+                audio.currentTime = 0
+                audio.play().catch(() => { })
+            }
+        } catch {
+            // Ignore audio errors
+        }
+    }, [soundEnabled])
+
+    const validateQRCode = useCallback(async (qrData: string) => {
+        // Prevent duplicate scans with cooldown
+        if (cooldownRef.current || qrData === lastScannedRef.current) {
+            return
+        }
+
+        cooldownRef.current = true
+        lastScannedRef.current = qrData
+        setIsLoading(true)
+        setLastResult(null)
+
+        try {
+            const response = await fetch('/api/checkin/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qrData, eventId }),
+            })
+
+            const result: ScanResult = await response.json()
+
+            setLastResult(result)
+            onScanResult?.(result)
+
+            // Play sound feedback
+            playSound(result.valid ? 'success' : 'error')
+
+            // Vibrate on mobile
+            if ('vibrate' in navigator) {
+                navigator.vibrate(result.valid ? [100] : [100, 50, 100])
+            }
+        } catch (err) {
+            const errorResult: ScanResult = {
+                valid: false,
+                status: 'NETWORK_ERROR',
+                message: 'Network error. Please try again.',
+            }
+            setLastResult(errorResult)
+            playSound('error')
+        } finally {
+            setIsLoading(false)
+
+            // Reset cooldown after 2 seconds
+            setTimeout(() => {
+                cooldownRef.current = false
+                lastScannedRef.current = null
+            }, 2000)
+        }
+    }, [eventId, onScanResult, playSound])
+
+    const startScanning = useCallback(async () => {
+        if (!containerRef.current) return
+
+        setError(null)
+
+        try {
+            const scanner = new Html5Qrcode('qr-reader')
+            scannerRef.current = scanner
+
+            await scanner.start(
+                { facingMode: 'environment' },
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                },
+                (decodedText) => {
+                    validateQRCode(decodedText)
+                },
+                () => {
+                    // Ignore QR scan errors (no QR found in frame)
+                }
+            )
+
+            setIsScanning(true)
+        } catch (err) {
+            console.error('Scanner error:', err)
+            setError('Unable to access camera. Please ensure camera permissions are granted.')
+        }
+    }, [validateQRCode])
+
+    const stopScanning = useCallback(async () => {
+        if (scannerRef.current) {
+            try {
+                await scannerRef.current.stop()
+                scannerRef.current = null
+            } catch {
+                // Ignore stop errors
+            }
+        }
+        setIsScanning(false)
+    }, [])
+
+    const resetScanner = useCallback(() => {
+        setLastResult(null)
+        lastScannedRef.current = null
+        cooldownRef.current = false
+    }, [])
+
+    const getResultIcon = () => {
+        if (!lastResult) return null
+
+        if (lastResult.valid) {
+            return <CheckCircle className="h-16 w-16 text-emerald-500" />
+        }
+
+        if (lastResult.status === 'ALREADY_USED') {
+            return <AlertCircle className="h-16 w-16 text-amber-500" />
+        }
+
+        return <XCircle className="h-16 w-16 text-red-500" />
+    }
+
+    const getResultColor = () => {
+        if (!lastResult) return 'bg-slate-100 dark:bg-slate-800'
+        if (lastResult.valid) return 'bg-emerald-100 dark:bg-emerald-900/30'
+        if (lastResult.status === 'ALREADY_USED') return 'bg-amber-100 dark:bg-amber-900/30'
+        return 'bg-red-100 dark:bg-red-900/30'
+    }
+
+    return (
+        <div className="space-y-4">
+            {/* Scanner Container */}
+            <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                    <div className="relative aspect-square max-w-md mx-auto bg-black">
+                        {/* QR Scanner Element */}
+                        <div
+                            id="qr-reader"
+                            ref={containerRef}
+                            className={`w-full h-full ${isScanning ? '' : 'hidden'}`}
+                        />
+
+                        {/* Placeholder when not scanning */}
+                        {!isScanning && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-white">
+                                <Camera className="h-16 w-16 mb-4 opacity-50" />
+                                <p className="text-sm opacity-75">Camera is off</p>
+                            </div>
+                        )}
+
+                        {/* Loading Overlay */}
+                        {isLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                <Loader2 className="h-12 w-12 animate-spin text-white" />
+                            </div>
+                        )}
+
+                        {/* Scan Frame Overlay */}
+                        {isScanning && !isLoading && (
+                            <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-64 h-64 border-2 border-white/50 rounded-lg">
+                                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-violet-500 rounded-tl-lg" />
+                                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-violet-500 rounded-tr-lg" />
+                                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-violet-500 rounded-bl-lg" />
+                                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-violet-500 rounded-br-lg" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Error Message */}
+            {error && (
+                <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
+                    {error}
+                </div>
+            )}
+
+            {/* Scan Result */}
+            {lastResult && (
+                <Card className={getResultColor()}>
+                    <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                            {getResultIcon()}
+                            <div className="flex-1">
+                                <h3 className="font-semibold text-lg">
+                                    {lastResult.message}
+                                </h3>
+                                {lastResult.ticketType && (
+                                    <p className="text-sm mt-1 opacity-75">
+                                        Ticket: {lastResult.ticketType}
+                                    </p>
+                                )}
+                                {lastResult.attendee?.name && (
+                                    <p className="text-sm opacity-75">
+                                        Attendee: {lastResult.attendee.name}
+                                    </p>
+                                )}
+                                {lastResult.checkedInAt && (
+                                    <p className="text-xs mt-2 opacity-60">
+                                        Checked in: {new Date(lastResult.checkedInAt).toLocaleString()}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            className="w-full mt-4"
+                            onClick={resetScanner}
+                        >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Scan Next Ticket
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Controls */}
+            <div className="flex gap-2">
+                <Button
+                    className="flex-1"
+                    onClick={isScanning ? stopScanning : startScanning}
+                    variant={isScanning ? 'destructive' : 'default'}
+                >
+                    {isScanning ? (
+                        <>
+                            <CameraOff className="h-4 w-4 mr-2" />
+                            Stop Camera
+                        </>
+                    ) : (
+                        <>
+                            <Camera className="h-4 w-4 mr-2" />
+                            Start Camera
+                        </>
+                    )}
+                </Button>
+
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                    title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+                >
+                    {soundEnabled ? (
+                        <Volume2 className="h-4 w-4" />
+                    ) : (
+                        <VolumeX className="h-4 w-4" />
+                    )}
+                </Button>
+            </div>
+        </div>
+    )
+}

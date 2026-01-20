@@ -1,6 +1,9 @@
-import { createClient } from '@/lib/supabase/client'
+interface SalesData {
+    name: string
+    value: number
+}
 
-export async function downloadSalesCSV(data: any[]) {
+export async function downloadSalesCSV(data: SalesData[]) {
     const headers = ['Date', 'Sales']
     const csvContent = [
         headers.join(','),

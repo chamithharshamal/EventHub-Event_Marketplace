@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
                 const orderId = session.metadata?.order_id
                 const eventId = session.metadata?.event_id
                 const userId = session.metadata?.user_id
+                const customerEmail = session.customer_details?.email || session.customer_email
 
                 if (!orderId || !eventId || !userId) {
                     console.error('Missing metadata in checkout session')
@@ -59,8 +60,8 @@ export async function POST(request: NextRequest) {
                     .eq('order_id', orderId)
 
                 if (orderItems && orderItems.length > 0) {
-                    // Generate tickets
-                    await generateTickets(supabase, orderId, eventId, userId, orderItems)
+                    // Generate tickets and send emails
+                    await generateTickets(supabase, orderId, eventId, userId, orderItems, customerEmail)
 
                     // Update ticket sold counts
                     for (const item of orderItems) {
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// Helper function to generate tickets
+// Helper function to generate tickets and send emails
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function generateTickets(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,22 +122,39 @@ async function generateTickets(
     orderItems: Array<{
         ticket_type_id: string
         quantity: number
-    }>
+    }>,
+    customerEmail?: string | null
 ) {
-    const { generateQRCodeData, signQRCode } = await import('@/lib/qr')
+    const { generateQRCodeData, signQRCode, generateQRCodeImage } = await import('@/lib/qr')
+    const { sendEmail, generateTicketEmailHtml } = await import('@/lib/email')
 
-    // Get event tenant_id
+    // Get event details
     const { data: event } = await supabase
         .from('events')
-        .select('tenant_id')
+        .select('tenant_id, title')
         .eq('id', eventId)
         .single()
 
     if (!event) return
 
     const tickets = []
+    const emailPromises = []
+
+    // Get ticket types for names
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ticketTypes } = await (supabase as any)
+        .from('ticket_types')
+        .select('id, name')
+        .in('id', orderItems.map(i => i.ticket_type_id))
+
+    const ticketTypeMap = new Map<string, string>(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ticketTypes?.map((t: any) => [t.id, t.name]) || []
+    )
 
     for (const item of orderItems) {
+        const ticketTypeName = ticketTypeMap.get(item.ticket_type_id) || 'Ticket'
+
         for (let i = 0; i < item.quantity; i++) {
             const ticketId = crypto.randomUUID()
             const qrData = generateQRCodeData(ticketId, eventId)
@@ -153,8 +171,36 @@ async function generateTickets(
                 qr_code_data: qrData,
                 qr_signature: qrSignature,
             })
+
+            // Queue email sending
+            if (customerEmail) {
+                emailPromises.push(async () => {
+                    try {
+                        const qrImage = await generateQRCodeImage(qrData)
+                        const html = generateTicketEmailHtml(
+                            event.title,
+                            ticketTypeName,
+                            qrImage,
+                            orderId
+                        )
+                        await sendEmail({
+                            to: customerEmail,
+                            subject: `Your Ticket for ${event.title}`,
+                            html,
+                        })
+                    } catch (error) {
+                        console.error('Failed to send email for ticket:', ticketId, error)
+                    }
+                })
+            }
         }
     }
 
+    // Insert tickets first
     await supabase.from('tickets').insert(tickets)
+
+    // Send emails in background (wait for them but catch errors so webhook succeeds)
+    if (emailPromises.length > 0) {
+        await Promise.all(emailPromises.map(fn => fn()))
+    }
 }

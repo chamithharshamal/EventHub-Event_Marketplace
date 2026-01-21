@@ -45,13 +45,14 @@ export default function DashboardPage() {
     return (
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+                <h2 className="text-3xl font-bold tracking-tight dark:text-white">Dashboard</h2>
                 <div className="flex items-center space-x-2">
                     <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-md dark:bg-slate-800">
                         <Button
                             variant={range === '7d' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setRange('7d')}
+                            className="dark:text-white"
                         >
                             7 Days
                         </Button>
@@ -59,6 +60,7 @@ export default function DashboardPage() {
                             variant={range === '30d' ? 'default' : 'ghost'}
                             size="sm"
                             onClick={() => setRange('30d')}
+                            className="dark:text-white"
                         >
                             30 Days
                         </Button>
@@ -84,13 +86,13 @@ export default function DashboardPage() {
                                 <CardTitle className="text-sm font-medium">
                                     Total Revenue
                                 </CardTitle>
-                                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                <DollarSign className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">
+                                <div className="text-2xl font-bold dark:text-white">
                                     {loading ? '...' : formatCurrency(data?.totalRevenue || 0)}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                     Last {range === '7d' ? '7 days' : '30 days'}
                                 </p>
                             </CardContent>
@@ -100,13 +102,13 @@ export default function DashboardPage() {
                                 <CardTitle className="text-sm font-medium">
                                     Orders
                                 </CardTitle>
-                                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                <CreditCard className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">
+                                <div className="text-2xl font-bold dark:text-white">
                                     {loading ? '...' : data?.totalOrders || 0}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                     Completed orders
                                 </p>
                             </CardContent>
@@ -114,13 +116,13 @@ export default function DashboardPage() {
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
-                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">
+                                <div className="text-2xl font-bold dark:text-white">
                                     {loading ? '...' : data?.totalTickets || 0}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                     Total tickets
                                 </p>
                             </CardContent>
@@ -128,15 +130,15 @@ export default function DashboardPage() {
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
-                                <Activity className="h-4 w-4 text-muted-foreground" />
+                                <Activity className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">
+                                <div className="text-2xl font-bold dark:text-white">
                                     {loading ? '...' : formatCurrency(
                                         data?.totalOrders ? (data.totalRevenue / data.totalOrders) : 0
                                     )}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
                                     Per transaction
                                 </p>
                             </CardContent>
@@ -152,7 +154,7 @@ export default function DashboardPage() {
                             </CardHeader>
                             <CardContent className="pl-2">
                                 {loading ? (
-                                    <div className="flex h-[350px] items-center justify-center">
+                                    <div className="flex h-[350px] items-center justify-center dark:text-white">
                                         Loading...
                                     </div>
                                 ) : (
@@ -169,7 +171,7 @@ export default function DashboardPage() {
                             </CardHeader>
                             <CardContent>
                                 {loading ? (
-                                    <div className="flex h-[300px] items-center justify-center">
+                                    <div className="flex h-[300px] items-center justify-center dark:text-white">
                                         Loading...
                                     </div>
                                 ) : data?.recentSales && data.recentSales.length > 0 ? (
@@ -184,7 +186,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Quick Links */}
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-3 dark:text-white">
                         <Link href="/dashboard/events">
                             <Card className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
                                 <CardContent className="p-6 flex items-center justify-between">

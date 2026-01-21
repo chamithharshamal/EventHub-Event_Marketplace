@@ -114,8 +114,8 @@ export default async function OrdersPage() {
                                 <ShoppingCart className="h-6 w-6 text-emerald-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                                <p className="text-sm text-slate-500">Total Revenue</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Total Revenue</p>
                             </div>
                         </div>
                     </CardContent>
@@ -127,8 +127,8 @@ export default async function OrdersPage() {
                                 <CheckCircle className="h-6 w-6 text-violet-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{completedOrders}</p>
-                                <p className="text-sm text-slate-500">Completed Orders</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{completedOrders}</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Completed Orders</p>
                             </div>
                         </div>
                     </CardContent>
@@ -140,8 +140,8 @@ export default async function OrdersPage() {
                                 <Clock className="h-6 w-6 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{pendingOrders}</p>
-                                <p className="text-sm text-slate-500">Pending Orders</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{pendingOrders}</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Pending Orders</p>
                             </div>
                         </div>
                     </CardContent>
@@ -157,8 +157,8 @@ export default async function OrdersPage() {
                     {!hasOrders ? (
                         <div className="py-12 text-center">
                             <ShoppingCart className="h-12 w-12 mx-auto text-slate-400" />
-                            <h3 className="mt-4 text-lg font-semibold">No orders yet</h3>
-                            <p className="mt-2 text-slate-500">Orders will appear here when customers purchase tickets</p>
+                            <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">No orders yet</h3>
+                            <p className="mt-2 text-slate-500 dark:text-slate-400">Orders will appear here when customers purchase tickets</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -182,7 +182,7 @@ export default async function OrdersPage() {
                                             <td className="px-4 py-4 text-sm font-medium">
                                                 {order.event?.title || 'Unknown Event'}
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-slate-500">
+                                            <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400">
                                                 {order.order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0} tickets
                                             </td>
                                             <td className="px-4 py-4 text-sm font-medium">
@@ -191,7 +191,7 @@ export default async function OrdersPage() {
                                             <td className="px-4 py-4">
                                                 {getStatusBadge(order.status)}
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-slate-500">
+                                            <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400">
                                                 {formatDate(order.created_at)}
                                             </td>
                                         </tr>

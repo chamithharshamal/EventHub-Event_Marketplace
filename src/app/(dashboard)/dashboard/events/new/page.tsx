@@ -150,8 +150,8 @@ export default function CreateEventPage() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as typeof activeTab)}
                             className={`pb-4 text-sm font-medium transition-colors relative ${activeTab === tab.id
-                                    ? 'text-violet-600 dark:text-violet-400'
-                                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                                ? 'text-violet-600 dark:text-violet-400'
+                                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                                 }`}
                         >
                             {tab.label}
@@ -172,7 +172,7 @@ export default function CreateEventPage() {
                             <CardHeader>
                                 <CardTitle>Basic Information</CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-4 dark:text-white">
                                 <Input
                                     label="Event Title"
                                     name="title"
@@ -191,7 +191,7 @@ export default function CreateEventPage() {
                                         value={formData.description}
                                         onChange={handleChange}
                                         rows={6}
-                                        className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900"
+                                        className="w-full rounded-lg border dark:placeholder:text-slate-500 border-slate-200 bg-white px-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900"
                                         placeholder="Describe your event..."
                                     />
                                 </div>
@@ -219,12 +219,12 @@ export default function CreateEventPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <Calendar className="h-5 w-5" />
+                                    <Calendar className="h-5 w-5 dark:text-white" />
                                     Date & Time
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid gap-4 sm:grid-cols-2">
+                            <CardContent className="space-y-4 dark:placeholder:text-slate-500">
+                                <div className="grid gap-4 sm:grid-cols-2 ">
                                     <Input
                                         label="Start Date"
                                         type="date"
@@ -267,13 +267,13 @@ export default function CreateEventPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <MapPin className="h-5 w-5" />
+                                    <MapPin className="h-5 w-5 dark:text-white" />
                                     Location
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="flex items-center gap-4">
-                                    <label className="flex items-center gap-2 cursor-pointer">
+                                    <label className="flex items-center gap-2 cursor-pointer dark:text-white">
                                         <input
                                             type="radio"
                                             name="is_online"
@@ -284,7 +284,7 @@ export default function CreateEventPage() {
                                         <Globe className="h-4 w-4" />
                                         In-Person
                                     </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
+                                    <label className="flex items-center gap-2 cursor-pointer dark:text-white">
                                         <input
                                             type="radio"
                                             name="is_online"
@@ -349,7 +349,7 @@ export default function CreateEventPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <ImageIcon className="h-5 w-5" />
+                                    <ImageIcon className="h-5 w-5 dark:text-white" />
                                     Event Banner
                                 </CardTitle>
                             </CardHeader>
@@ -462,7 +462,7 @@ export default function CreateEventPage() {
                                             value={ticket.description}
                                             onChange={(e) => updateTicketType(ticket.id, 'description', e.target.value)}
                                             rows={2}
-                                            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900"
+                                            className="w-full rounded-lg border border-slate-200 bg-white dark:placeholder:text-slate-500 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900"
                                             placeholder="Describe what's included with this ticket..."
                                         />
                                     </div>
@@ -490,7 +490,7 @@ export default function CreateEventPage() {
                                     className="h-4 w-4 rounded text-violet-600"
                                 />
                                 <div>
-                                    <p className="font-medium">Private Event</p>
+                                    <p className="font-medium dark:text-white">Private Event</p>
                                     <p className="text-sm text-slate-500">
                                         Only people with the link can view and purchase tickets
                                     </p>
@@ -509,7 +509,7 @@ export default function CreateEventPage() {
                                 value={formData.refund_policy}
                                 onChange={handleChange}
                                 rows={4}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900"
+                                className="w-full rounded-lg border dark:text-slate-500 border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900"
                                 placeholder="Describe your refund policy..."
                             />
                         </CardContent>

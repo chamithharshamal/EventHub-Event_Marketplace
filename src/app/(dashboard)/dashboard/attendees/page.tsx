@@ -112,7 +112,7 @@ export default async function AttendeesPage() {
                                 <Users className="h-6 w-6 text-violet-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{totalAttendees}</p>
+                                <p className="text-2xl font-bold dark:text-white">{totalAttendees}</p>
                                 <p className="text-sm text-slate-500">Total Attendees</p>
                             </div>
                         </div>
@@ -125,7 +125,7 @@ export default async function AttendeesPage() {
                                 <CheckCircle className="h-6 w-6 text-emerald-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{checkedIn}</p>
+                                <p className="text-2xl font-bold dark:text-white">{checkedIn}</p>
                                 <p className="text-sm text-slate-500">Checked In</p>
                             </div>
                         </div>
@@ -138,7 +138,7 @@ export default async function AttendeesPage() {
                                 <Ticket className="h-6 w-6 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{pending}</p>
+                                <p className="text-2xl font-bold dark:text-white">{pending}</p>
                                 <p className="text-sm text-slate-500">Pending Check-in</p>
                             </div>
                         </div>
@@ -161,7 +161,7 @@ export default async function AttendeesPage() {
                     {!hasAttendees ? (
                         <div className="py-12 text-center">
                             <Users className="h-12 w-12 mx-auto text-slate-400" />
-                            <h3 className="mt-4 text-lg font-semibold">No attendees yet</h3>
+                            <h3 className="mt-4 text-lg font-semibold dark:text-white">No attendees yet</h3>
                             <p className="mt-2 text-slate-500">Attendees will appear here when customers purchase tickets</p>
                         </div>
                     ) : (

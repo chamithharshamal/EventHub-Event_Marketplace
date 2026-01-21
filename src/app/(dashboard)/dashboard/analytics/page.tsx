@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-md dark:bg-slate-800">
+                    <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-md dark:bg-slate-800 dark:text-white">
                         <Button
                             variant={range === '7d' ? 'default' : 'ghost'}
                             size="sm"
@@ -88,13 +88,13 @@ export default function AnalyticsPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <DollarSign className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
+                        <div className="text-2xl font-bold dark:text-white">
                             {loading ? '...' : formatCurrency(data?.totalRevenue || 0)}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                             Last {range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}
                         </p>
                     </CardContent>
@@ -102,13 +102,13 @@ export default function AnalyticsPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                        <ShoppingCart className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
+                        <div className="text-2xl font-bold dark:text-white">
                             {loading ? '...' : data?.totalOrders || 0}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                             Completed orders
                         </p>
                     </CardContent>
@@ -116,13 +116,13 @@ export default function AnalyticsPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
+                        <div className="text-2xl font-bold dark:text-white">
                             {loading ? '...' : data?.totalTickets || 0}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                             Total tickets
                         </p>
                     </CardContent>
@@ -130,15 +130,15 @@ export default function AnalyticsPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                        <TrendingUp className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">
+                        <div className="text-2xl font-bold dark:text-white">
                             {loading ? '...' : formatCurrency(
                                 data?.totalOrders ? (data.totalRevenue / data.totalOrders) : 0
                             )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                             Per transaction
                         </p>
                     </CardContent>
@@ -156,7 +156,7 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent className="pl-2">
                         {loading ? (
-                            <div className="flex h-[350px] items-center justify-center">
+                            <div className="flex h-[350px] items-center justify-center dark:text-white">
                                 Loading...
                             </div>
                         ) : (
@@ -173,7 +173,7 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent>
                         {loading ? (
-                            <div className="flex h-[350px] items-center justify-center">
+                            <div className="flex h-[350px] items-center justify-center dark:text-white">
                                 Loading...
                             </div>
                         ) : data?.topEvents && data.topEvents.length > 0 ? (
@@ -187,7 +187,7 @@ export default function AnalyticsPage() {
                                             <p className="text-sm font-medium leading-none truncate">
                                                 {event.name}
                                             </p>
-                                            <p className="text-sm text-muted-foreground">
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">
                                                 {formatCurrency(event.value)}
                                             </p>
                                         </div>

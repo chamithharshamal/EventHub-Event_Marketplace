@@ -132,7 +132,7 @@ export default async function EventsManagementPage() {
                                 <Calendar className="h-6 w-6 text-violet-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{events.length}</p>
+                                <p className="text-2xl font-bold dark:text-white">{events.length}</p>
                                 <p className="text-sm text-slate-500">Total Events</p>
                             </div>
                         </div>
@@ -144,8 +144,8 @@ export default async function EventsManagementPage() {
                             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                                 <Ticket className="h-6 w-6 text-emerald-600" />
                             </div>
-                            <div>
-                                <p className="text-2xl font-bold">{totalTicketsSold}</p>
+                            <div> 
+                                <p className="text-2xl font-bold dark:text-white">{totalTicketsSold}</p>
                                 <p className="text-sm text-slate-500">Tickets Sold</p>
                             </div>
                         </div>
@@ -158,7 +158,7 @@ export default async function EventsManagementPage() {
                                 <Users className="h-6 w-6 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{totalTickets}</p>
+                                <p className="text-2xl font-bold dark:text-white">{totalTickets}</p>
                                 <p className="text-sm text-slate-500">Total Capacity</p>
                             </div>
                         </div>
@@ -173,7 +173,7 @@ export default async function EventsManagementPage() {
                     <Input placeholder="Search events..." className="pl-10" />
                 </div>
                 <div className="flex gap-2">
-                    <select className="h-11 rounded-lg border border-slate-200 bg-white px-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+                    <select className="h-11 rounded-lg border border-slate-200 bg-white px-4 text-sm dark:text-white dark:border-slate-700 dark:bg-slate-900">
                         <option value="">All Status</option>
                         <option value="published">Published</option>
                         <option value="draft">Draft</option>
@@ -192,7 +192,7 @@ export default async function EventsManagementPage() {
                     <Card>
                         <CardContent className="py-12 text-center">
                             <Calendar className="h-12 w-12 mx-auto text-slate-400" />
-                            <h3 className="mt-4 text-lg font-semibold">No events yet</h3>
+                            <h3 className="mt-4 text-lg font-semibold dark:text-white">No events yet</h3>
                             <p className="mt-2 text-slate-500">Create your first event to get started</p>
                             <Link href="/dashboard/events/new" className="mt-4 inline-block">
                                 <Button>

@@ -39,8 +39,8 @@ export default function SettingsPage() {
                             <button
                                 key={index}
                                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${item.active
-                                        ? 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
-                                        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                    ? 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+                                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                     }`}
                             >
                                 <item.icon className="h-4 w-4" />
@@ -66,23 +66,23 @@ export default function SettingsPage() {
                         <CardContent className="space-y-4">
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Full Name</label>
+                                    <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Full Name</label>
                                     <Input placeholder="Your name" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Email</label>
+                                    <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Email</label>
                                     <Input type="email" placeholder="your@email.com" disabled />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-2">Phone Number</label>
+                                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Phone Number</label>
                                 <Input placeholder="+1 (555) 000-0000" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-2">Bio</label>
+                                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Bio</label>
                                 <textarea
                                     rows={3}
-                                    className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                    className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                                     placeholder="Tell us about yourself..."
                                 />
                             </div>
@@ -103,17 +103,17 @@ export default function SettingsPage() {
                         <CardContent className="space-y-4">
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Organization Name</label>
+                                    <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Organization Name</label>
                                     <Input placeholder="Your organization" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Website</label>
+                                    <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Website</label>
                                     <Input placeholder="https://example.com" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-2">Default Currency</label>
-                                <select className="w-full h-11 rounded-lg border border-slate-200 px-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+                                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Default Currency</label>
+                                <select className="w-full h-11 rounded-lg border border-slate-200 px-4 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white">
                                     <option value="USD">USD - US Dollar</option>
                                     <option value="EUR">EUR - Euro</option>
                                     <option value="GBP">GBP - British Pound</option>
@@ -121,8 +121,8 @@ export default function SettingsPage() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-2">Timezone</label>
-                                <select className="w-full h-11 rounded-lg border border-slate-200 px-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+                                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Timezone</label>
+                                <select className="w-full h-11 rounded-lg border border-slate-200 px-4 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white">
                                     <option value="America/New_York">Eastern Time (US & Canada)</option>
                                     <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
                                     <option value="Europe/London">London</option>
@@ -152,8 +152,8 @@ export default function SettingsPage() {
                             ].map((item, index) => (
                                 <div key={index} className="flex items-center justify-between">
                                     <div>
-                                        <p className="font-medium text-sm">{item.label}</p>
-                                        <p className="text-sm text-slate-500">{item.description}</p>
+                                        <p className="font-medium text-sm text-slate-900 dark:text-white">{item.label}</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">{item.description}</p>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" className="sr-only peer" defaultChecked={index < 2} />

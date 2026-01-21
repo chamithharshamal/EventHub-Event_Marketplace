@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    typescript: true,
-})
+// Lazy initialization to avoid build-time errors
+function getStripe(): Stripe {
+    if (!process.env.STRIPE_SECRET_KEY) {
+        throw new Error('STRIPE_SECRET_KEY is not set')
+    }
+    return new Stripe(process.env.STRIPE_SECRET_KEY, {
+        typescript: true,
+    })
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -186,6 +192,9 @@ export async function POST(request: NextRequest) {
                 quantity: 1,
             })
         }
+
+        // Get Stripe instance (lazy initialization)
+        const stripe = getStripe()
 
         // Create Stripe Checkout Session
         const session = await stripe.checkout.sessions.create({

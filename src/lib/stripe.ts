@@ -1,12 +1,26 @@
 import Stripe from 'stripe'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is not set')
+let stripeInstance: Stripe | null = null
+
+// Lazy initialization to avoid build-time errors when env vars aren't set
+export function getStripe(): Stripe {
+    if (!stripeInstance) {
+        if (!process.env.STRIPE_SECRET_KEY) {
+            throw new Error('STRIPE_SECRET_KEY is not set')
+        }
+        stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+            typescript: true,
+        })
+    }
+    return stripeInstance
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    typescript: true,
-})
+// Keep the old export for backward compatibility (but it's now a getter)
+export const stripe = {
+    get instance() {
+        return getStripe()
+    }
+}
 
 export async function createCheckoutSession({
     eventId,
@@ -21,6 +35,8 @@ export async function createCheckoutSession({
     successUrl: string
     cancelUrl: string
 }) {
+    const stripeClient = getStripe()
+
     const lineItems = items.map(item => ({
         price_data: {
             currency: 'usd',
@@ -49,7 +65,7 @@ export async function createCheckoutSession({
         })
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await stripeClient.checkout.sessions.create({
         payment_method_types: ['card'],
         mode: 'payment',
         customer_email: customerEmail,
@@ -69,6 +85,7 @@ export async function constructWebhookEvent(
     payload: string | Buffer,
     signature: string
 ): Promise<Stripe.Event> {
+    const stripeClient = getStripe()
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
-    return stripe.webhooks.constructEvent(payload, signature, webhookSecret)
+    return stripeClient.webhooks.constructEvent(payload, signature, webhookSecret)
 }

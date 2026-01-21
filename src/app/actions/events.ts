@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { slugify, generateId } from '@/lib/utils'
+import { sendEventApprovedEmail, sendEventRejectedEmail } from '@/lib/email'
 
 export type EventFormData = {
     title: string
@@ -389,7 +390,7 @@ export async function approveEvent(eventId: string) {
         return { error: 'Not authorized' }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
         .from('events')
         .update({
             status: 'published',
@@ -398,12 +399,32 @@ export async function approveEvent(eventId: string) {
             rejection_reason: null
         })
         .eq('id', eventId)
-        .select()
+        .select(`
+            *,
+            profiles!events_organizer_id_fkey (
+                full_name,
+                email
+            )
+        `)
         .single()
 
     if (error) {
         console.error('Error approving event:', error)
         return { error: error.message }
+    }
+
+    // Send approval email to organizer
+    if (data?.profiles?.email) {
+        try {
+            await sendEventApprovedEmail({
+                to: data.profiles.email,
+                organizerName: data.profiles.full_name || 'Organizer',
+                eventTitle: data.title,
+                eventSlug: data.slug
+            })
+        } catch (emailError) {
+            console.error('Failed to send approval email:', emailError)
+        }
     }
 
     revalidatePath('/admin/events')
@@ -437,7 +458,7 @@ export async function rejectEvent(eventId: string, reason: string) {
         return { error: 'Rejection reason is required' }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
         .from('events')
         .update({
             status: 'rejected',
@@ -446,12 +467,32 @@ export async function rejectEvent(eventId: string, reason: string) {
             rejection_reason: reason.trim()
         })
         .eq('id', eventId)
-        .select()
+        .select(`
+            *,
+            profiles!events_organizer_id_fkey (
+                full_name,
+                email
+            )
+        `)
         .single()
 
     if (error) {
         console.error('Error rejecting event:', error)
         return { error: error.message }
+    }
+
+    // Send rejection email to organizer
+    if (data?.profiles?.email) {
+        try {
+            await sendEventRejectedEmail({
+                to: data.profiles.email,
+                organizerName: data.profiles.full_name || 'Organizer',
+                eventTitle: data.title,
+                rejectionReason: reason.trim()
+            })
+        } catch (emailError) {
+            console.error('Failed to send rejection email:', emailError)
+        }
     }
 
     revalidatePath('/admin/events')

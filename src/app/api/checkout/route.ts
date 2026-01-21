@@ -119,7 +119,6 @@ export async function POST(request: NextRequest) {
         const { data: order, error: orderError } = await (supabase as any)
             .from('orders')
             .insert({
-                tenant_id: event.tenant_id,
                 user_id: user.id,
                 event_id: eventId,
                 subtotal,
@@ -250,15 +249,6 @@ async function generateTickets(
 ) {
     const { generateQRCodeData, signQRCode } = await import('@/lib/qr')
 
-    // Get event tenant_id
-    const { data: event } = await supabase
-        .from('events')
-        .select('tenant_id')
-        .eq('id', eventId)
-        .single()
-
-    if (!event) return
-
     const tickets = []
 
     for (const item of orderItems) {
@@ -269,7 +259,6 @@ async function generateTickets(
 
             tickets.push({
                 id: ticketId,
-                tenant_id: event.tenant_id,
                 event_id: eventId,
                 ticket_type_id: item.ticket_type_id,
                 order_id: orderId,

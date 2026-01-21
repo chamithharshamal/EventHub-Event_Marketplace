@@ -180,21 +180,9 @@ export async function createEvent(formData: EventFormData) {
         return { error: 'Not authenticated' }
     }
 
-    // Get user's profile to get tenant_id
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('id', user.id)
-        .single()
-
-    if (!profile?.tenant_id) {
-        return { error: 'No tenant associated with user' }
-    }
-
     const slug = slugify(formData.title) + '-' + generateId().slice(0, 8)
 
     const eventData = {
-        tenant_id: profile.tenant_id,
         organizer_id: user.id,
         title: formData.title,
         slug,

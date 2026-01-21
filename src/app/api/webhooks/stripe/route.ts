@@ -131,7 +131,7 @@ async function generateTickets(
     // Get event details
     const { data: event } = await supabase
         .from('events')
-        .select('tenant_id, title')
+        .select('title')
         .eq('id', eventId)
         .single()
 
@@ -162,7 +162,6 @@ async function generateTickets(
 
             tickets.push({
                 id: ticketId,
-                tenant_id: event.tenant_id,
                 event_id: eventId,
                 ticket_type_id: item.ticket_type_id,
                 order_id: orderId,

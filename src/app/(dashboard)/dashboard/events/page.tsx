@@ -3,76 +3,80 @@ import {
     Plus,
     Search,
     Filter,
-    MoreVertical,
     Eye,
     Edit,
-    Trash2,
-    Copy,
+    MoreVertical,
     Calendar,
     Users,
     Ticket
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
 
-// Mock data - will be replaced with real data
-const mockEvents = [
-    {
-        id: '1',
-        title: 'Tech Innovation Summit 2026',
-        slug: 'tech-innovation-summit-2026',
-        status: 'published',
-        start_date: '2026-02-15T09:00:00Z',
-        city: 'San Francisco',
-        banner_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&auto=format&fit=crop',
-        ticket_types: [
-            { quantity_total: 500, quantity_sold: 380 }
-        ],
-        revenue: 98450,
-    },
-    {
-        id: '2',
-        title: 'AI Workshop Series',
-        slug: 'ai-workshop-series',
-        status: 'draft',
-        start_date: '2026-03-10T10:00:00Z',
-        city: 'New York',
-        banner_url: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&auto=format&fit=crop',
-        ticket_types: [
-            { quantity_total: 50, quantity_sold: 0 }
-        ],
-        revenue: 0,
-    },
-    {
-        id: '3',
-        title: 'Startup Networking Night',
-        slug: 'startup-networking-night',
-        status: 'published',
-        start_date: '2026-02-20T18:30:00Z',
-        city: 'Austin',
-        banner_url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=400&auto=format&fit=crop',
-        ticket_types: [
-            { quantity_total: 100, quantity_sold: 67 }
-        ],
-        revenue: 1675,
-    },
-    {
-        id: '4',
-        title: 'Music Festival 2026',
-        slug: 'music-festival-2026',
-        status: 'cancelled',
-        start_date: '2026-04-15T14:00:00Z',
-        city: 'Miami',
-        banner_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&auto=format&fit=crop',
-        ticket_types: [
-            { quantity_total: 2000, quantity_sold: 450 }
-        ],
-        revenue: 67500,
-    },
-]
+interface TicketType {
+    quantity_total: number
+    quantity_sold: number
+}
+
+interface Event {
+    id: string
+    title: string
+    slug: string
+    status: string
+    start_date: string
+    city: string | null
+    banner_url: string | null
+    ticket_types: TicketType[]
+}
+
+async function getMyEvents() {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const { data: events, error } = await supabase
+        .from('events')
+        .select(`
+            id,
+            title,
+            slug,
+            status,
+            start_date,
+            city,
+            banner_url,
+            ticket_types (
+                quantity_total,
+                quantity_sold
+            )
+        `)
+        .eq('organizer_id', user.id)
+        .order('created_at', { ascending: false })
+
+    if (error) {
+        console.error('Error fetching events:', error)
+        return []
+    }
+
+    return events as Event[]
+}
+
+async function getEventRevenue(eventId: string) {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+        .from('orders')
+        .select('total')
+        .eq('event_id', eventId)
+        .eq('status', 'completed') as { data: { total: number }[] | null; error: unknown }
+
+    if (error) return 0
+    return data?.reduce((sum, order) => sum + (order.total || 0), 0) || 0
+}
 
 function getStatusBadge(status: string) {
     switch (status) {
@@ -90,15 +94,16 @@ function getStatusBadge(status: string) {
 }
 
 export default async function EventsManagementPage() {
-    // TODO: Replace with real data fetch
-    // const events = await getMyEvents()
-    const events = mockEvents
+    const events = await getMyEvents()
+    const hasEvents = events.length > 0
 
     const totalTicketsSold = events.reduce((sum, event) => {
-        return sum + event.ticket_types.reduce((t, tt) => t + tt.quantity_sold, 0)
+        return sum + (event.ticket_types?.reduce((t, tt) => t + tt.quantity_sold, 0) || 0)
     }, 0)
 
-    const totalRevenue = events.reduce((sum, event) => sum + event.revenue, 0)
+    const totalTickets = events.reduce((sum, event) => {
+        return sum + (event.ticket_types?.reduce((t, tt) => t + tt.quantity_total, 0) || 0)
+    }, 0)
 
     return (
         <div className="space-y-8">
@@ -153,8 +158,8 @@ export default async function EventsManagementPage() {
                                 <Users className="h-6 w-6 text-amber-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                                <p className="text-sm text-slate-500">Total Revenue</p>
+                                <p className="text-2xl font-bold">{totalTickets}</p>
+                                <p className="text-sm text-slate-500">Total Capacity</p>
                             </div>
                         </div>
                     </CardContent>
@@ -183,7 +188,7 @@ export default async function EventsManagementPage() {
 
             {/* Events List */}
             <div className="space-y-4">
-                {events.length === 0 ? (
+                {!hasEvents ? (
                     <Card>
                         <CardContent className="py-12 text-center">
                             <Calendar className="h-12 w-12 mx-auto text-slate-400" />
@@ -199,20 +204,26 @@ export default async function EventsManagementPage() {
                     </Card>
                 ) : (
                     events.map((event) => {
-                        const totalTickets = event.ticket_types.reduce((t, tt) => t + tt.quantity_total, 0)
-                        const soldTickets = event.ticket_types.reduce((t, tt) => t + tt.quantity_sold, 0)
-                        const percentSold = totalTickets > 0 ? Math.round((soldTickets / totalTickets) * 100) : 0
+                        const totalEventTickets = event.ticket_types?.reduce((t, tt) => t + tt.quantity_total, 0) || 0
+                        const soldEventTickets = event.ticket_types?.reduce((t, tt) => t + tt.quantity_sold, 0) || 0
+                        const percentSold = totalEventTickets > 0 ? Math.round((soldEventTickets / totalEventTickets) * 100) : 0
 
                         return (
                             <Card key={event.id} className="overflow-hidden">
                                 <div className="flex flex-col sm:flex-row">
                                     {/* Event Image */}
-                                    <div className="relative w-full sm:w-48 h-32 sm:h-auto shrink-0">
-                                        <img
-                                            src={event.banner_url}
-                                            alt={event.title}
-                                            className="h-full w-full object-cover"
-                                        />
+                                    <div className="relative w-full sm:w-48 h-32 sm:h-auto shrink-0 bg-slate-200 dark:bg-slate-800">
+                                        {event.banner_url ? (
+                                            <img
+                                                src={event.banner_url}
+                                                alt={event.title}
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="h-full w-full flex items-center justify-center">
+                                                <Calendar className="h-8 w-8 text-slate-400" />
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Event Info */}
@@ -228,13 +239,13 @@ export default async function EventsManagementPage() {
                                                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                                                     {event.title}
                                                 </h3>
-                                                <p className="text-sm text-slate-500 mt-1">{event.city}</p>
+                                                <p className="text-sm text-slate-500 mt-1">{event.city || 'Online'}</p>
 
                                                 {/* Progress */}
                                                 <div className="mt-4">
                                                     <div className="flex items-center justify-between text-sm mb-1">
                                                         <span className="text-slate-500">Tickets sold</span>
-                                                        <span className="font-medium">{soldTickets}/{totalTickets}</span>
+                                                        <span className="font-medium">{soldEventTickets}/{totalEventTickets}</span>
                                                     </div>
                                                     <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700">
                                                         <div
@@ -245,15 +256,8 @@ export default async function EventsManagementPage() {
                                                 </div>
                                             </div>
 
-                                            {/* Revenue & Actions */}
+                                            {/* Actions */}
                                             <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4">
-                                                <div className="text-right">
-                                                    <p className="text-xl font-bold text-slate-900 dark:text-white">
-                                                        {formatCurrency(event.revenue)}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500">Revenue</p>
-                                                </div>
-
                                                 <div className="flex items-center gap-2">
                                                     <Link href={`/events/${event.slug}`}>
                                                         <Button variant="ghost" size="icon">

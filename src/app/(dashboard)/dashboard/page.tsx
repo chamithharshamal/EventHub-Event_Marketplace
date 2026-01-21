@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Overview } from '@/components/dashboard/overview'
 import { RecentSales } from '@/components/dashboard/recent-sales'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DollarSign, CreditCard, Activity, Users, Download } from 'lucide-react'
+import { DollarSign, CreditCard, Activity, Users, Download, ArrowUpRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { downloadSalesCSV } from '@/lib/export'
 
@@ -16,6 +17,7 @@ interface AnalyticsData {
     totalTickets: number
     salesData: { name: string; value: number }[]
     topEvents: { name: string; value: number }[]
+    recentSales: { name: string; email: string; amount: number }[]
 }
 
 export default function DashboardPage() {
@@ -45,7 +47,6 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
                 <div className="flex items-center space-x-2">
-                    {/* Date Range Picker Placeholder - effectively just buttons for now */}
                     <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-md dark:bg-slate-800">
                         <Button
                             variant={range === '7d' ? 'default' : 'ghost'}
@@ -72,8 +73,9 @@ export default function DashboardPage() {
             <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="analytics" disabled>Analytics</TabsTrigger>
-                    <TabsTrigger value="reports" disabled>Reports</TabsTrigger>
+                    <TabsTrigger value="analytics">
+                        <Link href="/dashboard/analytics">Analytics</Link>
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="overview" className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -89,53 +91,53 @@ export default function DashboardPage() {
                                     {loading ? '...' : formatCurrency(data?.totalRevenue || 0)}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    +20.1% from last month
+                                    Last {range === '7d' ? '7 days' : '30 days'}
                                 </p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">
-                                    Sales
+                                    Orders
                                 </CardTitle>
                                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">
-                                    {loading ? '...' : `+${data?.totalOrders || 0}`}
+                                    {loading ? '...' : data?.totalOrders || 0}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    +180.1% from last month
+                                    Completed orders
                                 </p>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Active Now</CardTitle>
-                                <Activity className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">+573</div>
-                                <p className="text-xs text-muted-foreground">
-                                    +201 since last hour
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">
-                                    Total Tickets
-                                </CardTitle>
+                                <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
                                 <Users className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">
-                                    {loading && '...'}
-                                    {/* Placeholder for total tickets */}
-                                    {!loading && '843'}
+                                    {loading ? '...' : data?.totalTickets || 0}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    +19% from last month
+                                    Total tickets
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
+                                <Activity className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">
+                                    {loading ? '...' : formatCurrency(
+                                        data?.totalOrders ? (data.totalRevenue / data.totalOrders) : 0
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Per transaction
                                 </p>
                             </CardContent>
                         </Card>
@@ -162,38 +164,62 @@ export default function DashboardPage() {
                             <CardHeader>
                                 <CardTitle>Recent Sales</CardTitle>
                                 <CardDescription>
-                                    You made {data?.totalOrders || 0} sales this month.
+                                    {data?.totalOrders || 0} orders in selected period
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {/* Mock data for now as RecentSales expects user details which we didn't fully plumb yet on API */}
-                                <RecentSales sales={[
-                                    {
-                                        name: "Olivia Martin",
-                                        email: "olivia.martin@email.com",
-                                        amount: 199.00,
-                                    },
-                                    {
-                                        name: "Jackson Lee",
-                                        email: "jackson.lee@email.com",
-                                        amount: 39.00,
-                                    },
-                                    {
-                                        name: "Isabella Nguyen",
-                                        email: "isabella.nguyen@email.com",
-                                        amount: 299.00,
-                                    },
-                                    {
-                                        name: "William Kim",
-                                        email: "will@email.com",
-                                        amount: 99.00,
-                                    },
-                                ]} />
+                                {loading ? (
+                                    <div className="flex h-[300px] items-center justify-center">
+                                        Loading...
+                                    </div>
+                                ) : data?.recentSales && data.recentSales.length > 0 ? (
+                                    <RecentSales sales={data.recentSales} />
+                                ) : (
+                                    <div className="flex h-[300px] items-center justify-center text-slate-500">
+                                        No recent sales
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
+
+                    {/* Quick Links */}
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <Link href="/dashboard/events">
+                            <Card className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                                <CardContent className="p-6 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-semibold">Manage Events</h3>
+                                        <p className="text-sm text-slate-500">Create and edit your events</p>
+                                    </div>
+                                    <ArrowUpRight className="h-5 w-5 text-slate-400" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                        <Link href="/dashboard/orders">
+                            <Card className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                                <CardContent className="p-6 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-semibold">View Orders</h3>
+                                        <p className="text-sm text-slate-500">Track ticket purchases</p>
+                                    </div>
+                                    <ArrowUpRight className="h-5 w-5 text-slate-400" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                        <Link href="/dashboard/attendees">
+                            <Card className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                                <CardContent className="p-6 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-semibold">Attendees</h3>
+                                        <p className="text-sm text-slate-500">Manage your attendees</p>
+                                    </div>
+                                    <ArrowUpRight className="h-5 w-5 text-slate-400" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    </div>
                 </TabsContent>
-                {/* Placeholder for other tabs */}
             </Tabs>
         </div>
     )

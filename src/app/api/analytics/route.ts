@@ -34,16 +34,7 @@ export async function GET(request: NextRequest) {
                 startDate = subDays(new Date(), 7)
         }
 
-        // Fetch orders
-        let query = supabase
-            .from('orders')
-            .select('created_at, total, status, event_id, events(title)')
-            .eq('status', 'completed')
-            .gte('created_at', startOfDay(startDate).toISOString())
-
-        // Filter by user (organizer) through events
-        // This part is tricky with Supabase basic queries if we want orders for ALL events owned by user
-        // easier to first get all event IDs owned by user
+        // Get all event IDs owned by user
         const { data: userEvents } = await supabase
             .from('events')
             .select('id')
@@ -55,11 +46,19 @@ export async function GET(request: NextRequest) {
                 totalOrders: 0,
                 totalTickets: 0,
                 salesData: [],
-                topEvents: []
+                topEvents: [],
+                recentSales: []
             })
         }
 
         const userEventIds = (userEvents || []).map((e: { id: string }) => e.id)
+
+        // Fetch orders
+        let query = supabase
+            .from('orders')
+            .select('id, created_at, total, status, event_id, events(title), user_id, profiles(email, full_name)')
+            .eq('status', 'completed')
+            .gte('created_at', startOfDay(startDate).toISOString())
 
         if (eventId) {
             if (!userEventIds.includes(eventId)) {
@@ -71,9 +70,17 @@ export async function GET(request: NextRequest) {
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: orders, error } = await (query as any)
+        const { data: orders, error } = await (query.order('created_at', { ascending: false }) as any)
 
         if (error) throw error
+
+        // Get total tickets sold
+        const { data: tickets } = await supabase
+            .from('tickets')
+            .select('id')
+            .in('event_id', userEventIds)
+
+        const totalTickets = tickets?.length || 0
 
         // Aggregate Data
         const salesMap = new Map<string, number>()
@@ -87,14 +94,10 @@ export async function GET(request: NextRequest) {
             salesMap.set(dateStr, 0)
         }
 
-        orders.forEach((order: any) => {
+        orders.forEach((order: { created_at: string; total: number }) => {
             const dateStr = format(new Date(order.created_at), 'MMM dd')
-            // Only valid if within our pre-generated map (which it should be due to query)
             if (salesMap.has(dateStr)) {
                 salesMap.set(dateStr, (salesMap.get(dateStr) || 0) + order.total)
-            } else {
-                // Handle edge cases or timezone offsets slightly outside
-                // Just ignore or add to closest? For simple charts, exact day matching matches chart labels
             }
             totalRevenue += order.total
             totalOrders++
@@ -105,12 +108,11 @@ export async function GET(request: NextRequest) {
             .map(([name, value]) => ({ name, value }))
             .reverse()
 
-
         // Top selling events
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const eventSalesMap = new Map<string, { name: string, value: number }>()
 
-        orders.forEach((order: any) => {
+        orders.forEach((order: { events?: { title: string }; total: number }) => {
             const eventTitle = order.events?.title || 'Unknown Event'
             if (!eventSalesMap.has(eventTitle)) {
                 eventSalesMap.set(eventTitle, { name: eventTitle, value: 0 })
@@ -124,11 +126,21 @@ export async function GET(request: NextRequest) {
             .sort((a, b) => b.value - a.value)
             .slice(0, 5)
 
+        // Recent sales (last 5 orders)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recentSales = orders.slice(0, 5).map((order: any) => ({
+            name: order.profiles?.full_name || 'Customer',
+            email: order.profiles?.email || 'No email',
+            amount: order.total
+        }))
+
         return NextResponse.json({
             totalRevenue,
             totalOrders,
+            totalTickets,
             salesData,
-            topEvents
+            topEvents,
+            recentSales
         })
 
     } catch (error) {
@@ -139,3 +151,4 @@ export async function GET(request: NextRequest) {
         )
     }
 }
+

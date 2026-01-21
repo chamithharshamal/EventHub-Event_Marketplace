@@ -4,99 +4,67 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
 
-// Mock data for demo purposes
 const categories = [
-    { name: 'All Events', slug: 'all', count: 245 },
-    { name: 'Conferences', slug: 'conference', count: 42 },
-    { name: 'Concerts', slug: 'concert', count: 78 },
-    { name: 'Workshops', slug: 'workshop', count: 56 },
-    { name: 'Networking', slug: 'networking', count: 34 },
-    { name: 'Sports', slug: 'sports', count: 35 },
+    { name: 'All Events', slug: 'all', count: 0 },
+    { name: 'Conferences', slug: 'conference', count: 0 },
+    { name: 'Concerts', slug: 'concert', count: 0 },
+    { name: 'Workshops', slug: 'workshop', count: 0 },
+    { name: 'Networking', slug: 'networking', count: 0 },
+    { name: 'Sports', slug: 'sports', count: 0 },
 ]
 
-const featuredEvents = [
-    {
-        id: '1',
-        title: 'Tech Innovation Summit 2026',
-        slug: 'tech-innovation-summit-2026',
-        description: 'Join industry leaders and innovators for a day of insights on the future of technology.',
-        bannerUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop',
-        category: 'Conference',
-        city: 'San Francisco',
-        country: 'USA',
-        startDate: '2026-02-15T09:00:00Z',
-        price: 299,
-        soldOut: false,
-    },
-    {
-        id: '2',
-        title: 'Electronic Music Festival',
-        slug: 'electronic-music-festival',
-        description: 'Experience the best electronic music artists from around the world.',
-        bannerUrl: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800&auto=format&fit=crop',
-        category: 'Concert',
-        city: 'Miami',
-        country: 'USA',
-        startDate: '2026-03-20T18:00:00Z',
-        price: 150,
-        soldOut: false,
-    },
-    {
-        id: '3',
-        title: 'AI & Machine Learning Workshop',
-        slug: 'ai-ml-workshop',
-        description: 'Hands-on workshop covering the latest in AI and ML technologies.',
-        bannerUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&auto=format&fit=crop',
-        category: 'Workshop',
-        city: 'New York',
-        country: 'USA',
-        startDate: '2026-02-28T10:00:00Z',
-        price: 0,
-        soldOut: false,
-    },
-    {
-        id: '4',
-        title: 'Startup Networking Night',
-        slug: 'startup-networking-night',
-        description: 'Connect with fellow entrepreneurs and investors in an evening of networking.',
-        bannerUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&auto=format&fit=crop',
-        category: 'Networking',
-        city: 'Austin',
-        country: 'USA',
-        startDate: '2026-02-10T18:30:00Z',
-        price: 25,
-        soldOut: true,
-    },
-    {
-        id: '5',
-        title: 'Design Systems Conference',
-        slug: 'design-systems-conf',
-        description: 'Learn how top companies build and scale their design systems.',
-        bannerUrl: 'https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=800&auto=format&fit=crop',
-        category: 'Conference',
-        city: 'Los Angeles',
-        country: 'USA',
-        startDate: '2026-04-05T09:00:00Z',
-        price: 199,
-        soldOut: false,
-    },
-    {
-        id: '6',
-        title: 'Marathon Championship',
-        slug: 'marathon-championship',
-        description: 'Annual marathon event with professional and amateur categories.',
-        bannerUrl: 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&auto=format&fit=crop',
-        category: 'Sports',
-        city: 'Boston',
-        country: 'USA',
-        startDate: '2026-05-10T06:00:00Z',
-        price: 75,
-        soldOut: false,
-    },
-]
+interface Event {
+    id: string
+    title: string
+    slug: string
+    description: string | null
+    banner_url: string | null
+    category: string | null
+    city: string | null
+    country: string | null
+    start_date: string
+    status: string
+    ticket_types: { price: number }[]
+}
 
-export default function EventsPage() {
+async function getEvents() {
+    const supabase = await createClient()
+
+    const { data: events, error } = await supabase
+        .from('events')
+        .select(`
+            id,
+            title,
+            slug,
+            description,
+            banner_url,
+            category,
+            city,
+            country,
+            start_date,
+            status,
+            ticket_types (
+                price
+            )
+        `)
+        .eq('status', 'published')
+        .order('start_date', { ascending: true })
+        .limit(12)
+
+    if (error) {
+        console.error('Error fetching events:', error)
+        return []
+    }
+
+    return events as Event[]
+}
+
+export default async function EventsPage() {
+    const events = await getEvents()
+    const hasEvents = events.length > 0
+
     return (
         <div className="min-h-screen">
             {/* Hero Search Section */}
@@ -170,7 +138,6 @@ export default function EventsPage() {
                                                 className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                                             >
                                                 <span>{category.name}</span>
-                                                <span className="text-xs text-slate-400">{category.count}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -215,70 +182,105 @@ export default function EventsPage() {
                         <div className="flex-1">
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                                    Featured Events
+                                    {hasEvents ? 'Upcoming Events' : 'No Events Yet'}
                                 </h2>
-                                <select className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
-                                    <option>Most Popular</option>
-                                    <option>Date: Upcoming</option>
-                                    <option>Price: Low to High</option>
-                                    <option>Price: High to Low</option>
-                                </select>
+                                {hasEvents && (
+                                    <select className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+                                        <option>Most Popular</option>
+                                        <option>Date: Upcoming</option>
+                                        <option>Price: Low to High</option>
+                                        <option>Price: High to Low</option>
+                                    </select>
+                                )}
                             </div>
 
-                            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                                {featuredEvents.map((event) => (
-                                    <Link key={event.id} href={`/events/${event.slug}`}>
-                                        <Card className="group overflow-hidden hover-lift cursor-pointer h-full">
-                                            {/* Event Image */}
-                                            <div className="relative aspect-[16/10] overflow-hidden">
-                                                <img
-                                                    src={event.bannerUrl}
-                                                    alt={event.title}
-                                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                                                    <Badge variant={event.soldOut ? 'destructive' : 'default'}>
-                                                        {event.soldOut ? 'Sold Out' : event.category}
-                                                    </Badge>
-                                                    <div className="text-right">
-                                                        <div className="text-lg font-bold text-white">
-                                                            {event.price === 0 ? 'Free' : formatCurrency(event.price)}
+                            {!hasEvents ? (
+                                <div className="text-center py-16">
+                                    <div className="mx-auto w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                                        <Calendar className="h-12 w-12 text-slate-400" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                                        No events available
+                                    </h3>
+                                    <p className="text-slate-500 dark:text-slate-400 mb-6">
+                                        There are no published events yet. Check back later or create your own!
+                                    </p>
+                                    <Link href="/dashboard/events/new">
+                                        <Button>Create Event</Button>
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                                    {events.map((event) => {
+                                        const lowestPrice = event.ticket_types?.length
+                                            ? Math.min(...event.ticket_types.map((t) => t.price))
+                                            : 0
+
+                                        return (
+                                            <Link key={event.id} href={`/events/${event.slug}`}>
+                                                <Card className="group overflow-hidden hover-lift cursor-pointer h-full">
+                                                    {/* Event Image */}
+                                                    <div className="relative aspect-[16/10] overflow-hidden bg-slate-200 dark:bg-slate-700">
+                                                        {event.banner_url ? (
+                                                            <img
+                                                                src={event.banner_url}
+                                                                alt={event.title}
+                                                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                            />
+                                                        ) : (
+                                                            <div className="h-full w-full flex items-center justify-center">
+                                                                <Calendar className="h-12 w-12 text-slate-400" />
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                                        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                                                            <Badge variant="default">
+                                                                {event.category || 'Event'}
+                                                            </Badge>
+                                                            <div className="text-right">
+                                                                <div className="text-lg font-bold text-white">
+                                                                    {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice)}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </div>
 
-                                            <CardContent className="p-4">
-                                                <h3 className="font-semibold text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 transition-colors">
-                                                    {event.title}
-                                                </h3>
-                                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
-                                                    {event.description}
-                                                </p>
-                                                <div className="mt-3 flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-                                                    <div className="flex items-center gap-1">
-                                                        <Calendar className="h-4 w-4" />
-                                                        {formatDate(event.startDate, { month: 'short', day: 'numeric' })}
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <MapPin className="h-4 w-4" />
-                                                        {event.city}
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    </Link>
-                                ))}
-                            </div>
+                                                    <CardContent className="p-4">
+                                                        <h3 className="font-semibold text-slate-900 dark:text-white line-clamp-1 group-hover:text-violet-600 transition-colors">
+                                                            {event.title}
+                                                        </h3>
+                                                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
+                                                            {event.description || 'No description available.'}
+                                                        </p>
+                                                        <div className="mt-3 flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                                                            <div className="flex items-center gap-1">
+                                                                <Calendar className="h-4 w-4" />
+                                                                {formatDate(event.start_date, { month: 'short', day: 'numeric' })}
+                                                            </div>
+                                                            {event.city && (
+                                                                <div className="flex items-center gap-1">
+                                                                    <MapPin className="h-4 w-4" />
+                                                                    {event.city}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            </Link>
+                                        )
+                                    })}
+                                </div>
+                            )}
 
                             {/* Load More */}
-                            <div className="mt-8 text-center">
-                                <Button variant="outline">
-                                    Load More Events
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
+                            {hasEvents && (
+                                <div className="mt-8 text-center">
+                                    <Button variant="outline">
+                                        Load More Events
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

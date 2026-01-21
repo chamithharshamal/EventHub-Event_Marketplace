@@ -84,6 +84,10 @@ function getStatusBadge(status: string) {
             return <Badge variant="success">Published</Badge>
         case 'draft':
             return <Badge variant="secondary">Draft</Badge>
+        case 'pending_approval':
+            return <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Pending Approval</Badge>
+        case 'rejected':
+            return <Badge variant="destructive">Rejected</Badge>
         case 'cancelled':
             return <Badge variant="destructive">Cancelled</Badge>
         case 'completed':
@@ -144,7 +148,7 @@ export default async function EventsManagementPage() {
                             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                                 <Ticket className="h-6 w-6 text-emerald-600" />
                             </div>
-                            <div> 
+                            <div>
                                 <p className="text-2xl font-bold dark:text-white">{totalTicketsSold}</p>
                                 <p className="text-sm text-slate-500">Tickets Sold</p>
                             </div>

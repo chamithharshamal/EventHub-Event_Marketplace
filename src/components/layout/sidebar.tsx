@@ -1,7 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
     LayoutDashboard,
     CalendarDays,
@@ -10,9 +11,11 @@ import {
     Settings,
     Users,
     QrCode,
-    LogOut
+    LogOut,
+    Shield
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface SidebarProps {
     userRole?: 'admin' | 'organizer' | 'staff' | 'attendee'
@@ -20,6 +23,31 @@ interface SidebarProps {
 
 export function Sidebar({ userRole = 'organizer' }: SidebarProps) {
     const pathname = usePathname()
+    const router = useRouter()
+    const [isAdmin, setIsAdmin] = useState(false)
+
+    const handleSignOut = async () => {
+        const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+        await supabase.auth.signOut()
+        router.push('/login')
+    }
+
+    useEffect(() => {
+        // Check if user is admin
+        const checkAdmin = async () => {
+            try {
+                const res = await fetch('/api/admin/stats')
+                const data = await res.json()
+                setIsAdmin(!data.error)
+            } catch {
+                setIsAdmin(false)
+            }
+        }
+        checkAdmin()
+    }, [])
 
     const organizerLinks = [
         { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -28,6 +56,11 @@ export function Sidebar({ userRole = 'organizer' }: SidebarProps) {
         { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
         { href: '/dashboard/attendees', label: 'Attendees', icon: Users },
         { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+    ]
+
+    const adminLinks = [
+        { href: '/admin', label: 'Admin Dashboard', icon: Shield },
+        { href: '/admin/events', label: 'Event Moderation', icon: CalendarDays },
     ]
 
     const staffLinks = [
@@ -41,6 +74,9 @@ export function Sidebar({ userRole = 'organizer' }: SidebarProps) {
     const isActive = (href: string) => {
         if (href === '/dashboard') {
             return pathname === '/dashboard'
+        }
+        if (href === '/admin') {
+            return pathname === '/admin'
         }
         return pathname.startsWith(href)
     }
@@ -79,11 +115,42 @@ export function Sidebar({ userRole = 'organizer' }: SidebarProps) {
                         {link.label}
                     </Link>
                 ))}
+
+                {/* Admin Section */}
+                {isAdmin && (
+                    <>
+                        <div className="my-4 border-t border-slate-200 dark:border-slate-800" />
+                        <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            Admin
+                        </p>
+                        {adminLinks.map((link) => (
+                            <Link
+                                key={link.href}
+                                href={link.href}
+                                className={cn(
+                                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                                    isActive(link.href)
+                                        ? 'bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 dark:from-amber-950 dark:to-orange-950 dark:text-amber-300'
+                                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+                                )}
+                            >
+                                <link.icon className={cn(
+                                    'h-5 w-5',
+                                    isActive(link.href) ? 'text-amber-600 dark:text-amber-400' : ''
+                                )} />
+                                {link.label}
+                            </Link>
+                        ))}
+                    </>
+                )}
             </nav>
 
             {/* Bottom Section */}
             <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-                <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950 dark:hover:text-red-400">
+                <button
+                    onClick={handleSignOut}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950 dark:hover:text-red-400"
+                >
                     <LogOut className="h-5 w-5" />
                     Sign Out
                 </button>
@@ -91,3 +158,4 @@ export function Sidebar({ userRole = 'organizer' }: SidebarProps) {
         </aside>
     )
 }
+

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { slugify, generateId } from '@/lib/utils'
 
 export type EventFormData = {
@@ -262,22 +262,25 @@ export async function publishEvent(eventId: string) {
         return { error: 'Not authenticated' }
     }
 
+    // Submit for approval instead of directly publishing
     const { data, error } = await supabase
         .from('events')
-        .update({ status: 'published' })
+        .update({
+            status: 'pending_approval',
+            rejection_reason: null // Clear any previous rejection
+        })
         .eq('id', eventId)
         .eq('organizer_id', user.id)
         .select()
         .single()
 
     if (error) {
-        console.error('Error publishing event:', error)
+        console.error('Error submitting event for approval:', error)
         return { error: error.message }
     }
 
     revalidatePath('/dashboard/events')
-    revalidatePath('/events')
-    return { data }
+    return { data, message: 'Event submitted for approval' }
 }
 
 export async function deleteEvent(eventId: string) {
@@ -303,3 +306,188 @@ export async function deleteEvent(eventId: string) {
     revalidatePath('/dashboard/events')
     redirect('/dashboard/events')
 }
+
+// =============================================
+// ADMIN FUNCTIONS
+// =============================================
+
+export async function isAdmin() {
+    const supabase = await createClient() as SupabaseAny
+    const adminClient = createAdminClient() as SupabaseAny
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return false
+
+    // Use admin client to bypass RLS and check role
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    return profile?.role === 'admin'
+}
+
+export async function getPendingEvents() {
+    const supabase = await createClient() as SupabaseAny
+    const adminClient = createAdminClient() as SupabaseAny
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    // Check if user is admin (use admin client to bypass RLS)
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (profile?.role !== 'admin') {
+        return []
+    }
+
+    const { data: events, error } = await supabase
+        .from('events')
+        .select(`
+            *,
+            profiles!events_organizer_id_fkey (
+                full_name,
+                email,
+                avatar_url
+            )
+        `)
+        .eq('status', 'pending_approval')
+        .order('created_at', { ascending: false })
+
+    if (error) {
+        console.error('Error fetching pending events:', error)
+        return []
+    }
+
+    return events
+}
+
+export async function approveEvent(eventId: string) {
+    const supabase = await createClient() as SupabaseAny
+    const adminClient = createAdminClient() as SupabaseAny
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        return { error: 'Not authenticated' }
+    }
+
+    // Check if user is admin (use admin client to bypass RLS)
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (profile?.role !== 'admin') {
+        return { error: 'Not authorized' }
+    }
+
+    const { data, error } = await supabase
+        .from('events')
+        .update({
+            status: 'published',
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+            rejection_reason: null
+        })
+        .eq('id', eventId)
+        .select()
+        .single()
+
+    if (error) {
+        console.error('Error approving event:', error)
+        return { error: error.message }
+    }
+
+    revalidatePath('/admin/events')
+    revalidatePath('/events')
+    revalidatePath('/dashboard/events')
+    return { data }
+}
+
+export async function rejectEvent(eventId: string, reason: string) {
+    const supabase = await createClient() as SupabaseAny
+    const adminClient = createAdminClient() as SupabaseAny
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        return { error: 'Not authenticated' }
+    }
+
+    // Check if user is admin (use admin client to bypass RLS)
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (profile?.role !== 'admin') {
+        return { error: 'Not authorized' }
+    }
+
+    if (!reason || reason.trim() === '') {
+        return { error: 'Rejection reason is required' }
+    }
+
+    const { data, error } = await supabase
+        .from('events')
+        .update({
+            status: 'rejected',
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+            rejection_reason: reason.trim()
+        })
+        .eq('id', eventId)
+        .select()
+        .single()
+
+    if (error) {
+        console.error('Error rejecting event:', error)
+        return { error: error.message }
+    }
+
+    revalidatePath('/admin/events')
+    revalidatePath('/dashboard/events')
+    return { data }
+}
+
+export async function getAdminStats() {
+    const supabase = await createClient() as SupabaseAny
+    const adminClient = createAdminClient() as SupabaseAny
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    // Check if user is admin (use admin client to bypass RLS)
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (profile?.role !== 'admin') {
+        return null
+    }
+
+    // Get counts
+    const [pendingResult, publishedResult, usersResult] = await Promise.all([
+        supabase.from('events').select('id', { count: 'exact' }).eq('status', 'pending_approval'),
+        supabase.from('events').select('id', { count: 'exact' }).eq('status', 'published'),
+        supabase.from('profiles').select('id', { count: 'exact' })
+    ])
+
+    return {
+        pendingEvents: pendingResult.count || 0,
+        publishedEvents: publishedResult.count || 0,
+        totalUsers: usersResult.count || 0
+    }
+}
+

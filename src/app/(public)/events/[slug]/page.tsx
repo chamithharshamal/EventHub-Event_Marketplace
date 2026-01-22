@@ -5,10 +5,10 @@ import {
     MapPin,
     Clock,
     Share2,
-    Heart,
     Ticket,
     ArrowLeft,
-    Video
+    Video,
+    User
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,10 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate, formatDateTime, formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { CheckoutButton } from '@/components/checkout/checkout-button'
+import { VerifiedBadge } from '@/components/ui/verified-badge'
+import { WaitlistButton } from '@/components/events/WaitlistButton'
+import { FavoriteButton } from '@/components/events/FavoriteButton'
+import { isFavorited } from '@/app/actions/favorites'
 
 interface EventPageProps {
     params: Promise<{ slug: string }>
@@ -98,6 +102,19 @@ async function getEventBySlug(slug: string) {
     return event as Event
 }
 
+async function getOrganizer(organizerId: string) {
+    const supabase = await createClient()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
+        .from('profiles')
+        .select('id, full_name, avatar_url, is_verified')
+        .eq('id', organizerId)
+        .single()
+
+    return data
+}
+
 export default async function EventPage({ params }: EventPageProps) {
     const { slug } = await params
     const event = await getEventBySlug(slug)
@@ -113,6 +130,10 @@ export default async function EventPage({ params }: EventPageProps) {
         ? Math.min(...event.ticket_types.map((t) => t.price))
         : 0
     const isSoldOut = availableTickets.length === 0
+
+    // Fetch organizer info
+    const organizer = await getOrganizer(event.organizer_id)
+    const isFav = await isFavorited(event.id)
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -306,30 +327,65 @@ export default async function EventPage({ params }: EventPageProps) {
                                     })}
 
                                     {event.ticket_types?.length > 0 ? (
-                                        <CheckoutButton
-                                            eventId={event.id}
-                                            eventSlug={event.slug}
-                                            ticketTypes={event.ticket_types}
-                                            disabled={isSoldOut}
-                                        />
+                                        isSoldOut ? (
+                                            <WaitlistButton
+                                                eventId={event.id}
+                                                eventTitle={event.title}
+                                                variant="large"
+                                            />
+                                        ) : (
+                                            <CheckoutButton
+                                                eventId={event.id}
+                                                eventSlug={event.slug}
+                                                ticketTypes={event.ticket_types}
+                                                disabled={isSoldOut}
+                                            />
+                                        )
                                     ) : (
                                         <p className="text-center text-slate-500 py-4">
                                             No tickets available for this event yet.
                                         </p>
                                     )}
+
+                                    {/* Organizer */}
+                                    {organizer && (
+                                        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                                            <p className="text-xs text-slate-500 mb-2">Organized by</p>
+                                            <div className="flex items-center gap-3">
+                                                {organizer.avatar_url ? (
+                                                    <img
+                                                        src={organizer.avatar_url}
+                                                        alt={organizer.full_name}
+                                                        className="h-10 w-10 rounded-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="h-10 w-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                                                        <User className="h-5 w-5 text-violet-600" />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <p className="font-medium text-sm flex items-center gap-1">
+                                                        {organizer.full_name || 'Event Organizer'}
+                                                        {organizer.is_verified && <VerifiedBadge size="sm" />}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 
-                            {/* Share & Save */}
                             <div className="flex gap-2">
                                 <Button variant="outline" className="flex-1">
                                     <Share2 className="h-4 w-4 mr-2" />
                                     Share
                                 </Button>
-                                <Button variant="outline" className="flex-1">
-                                    <Heart className="h-4 w-4 mr-2" />
-                                    Save
-                                </Button>
+                                <FavoriteButton
+                                    eventId={event.id}
+                                    initialFavorited={isFav}
+                                    showText
+                                    className="flex-1"
+                                />
                             </div>
                         </div>
                     </div>

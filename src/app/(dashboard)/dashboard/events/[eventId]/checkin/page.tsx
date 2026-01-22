@@ -1,6 +1,5 @@
-'use client'
-
-import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/server'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
     ArrowLeft,
@@ -9,7 +8,8 @@ import {
     CheckCircle,
     Clock,
     TrendingUp,
-    RefreshCw
+    RefreshCw,
+    Calendar
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,79 +17,92 @@ import { Badge } from '@/components/ui/badge'
 import { QRScanner } from '@/components/checkin/qr-scanner'
 import { formatDateTime } from '@/lib/utils'
 
-// Mock event and stats data
-const mockEvent = {
-    id: 'evt_001',
-    title: 'Tech Innovation Summit 2026',
-    start_date: '2026-02-15T09:00:00Z',
-    end_date: '2026-02-15T18:00:00Z',
-    venue_name: 'Moscone Center',
-    city: 'San Francisco',
-}
-
-const mockStats = {
-    totalTickets: 380,
-    checkedIn: 127,
-    pendingCheckin: 253,
-    checkinsLastHour: 45,
-}
-
-const mockRecentCheckins = [
-    { id: '1', name: 'John Doe', ticketType: 'VIP', time: '2 min ago' },
-    { id: '2', name: 'Jane Smith', ticketType: 'General Admission', time: '5 min ago' },
-    { id: '3', name: 'Mike Johnson', ticketType: 'General Admission', time: '8 min ago' },
-    { id: '4', name: 'Sarah Wilson', ticketType: 'VIP', time: '12 min ago' },
-    { id: '5', name: 'Chris Brown', ticketType: 'General Admission', time: '15 min ago' },
-]
+// Force dynamic rendering to ensure stats are fresh
+export const dynamic = 'force-dynamic'
 
 interface CheckinPageProps {
     params: Promise<{ eventId: string }>
 }
 
-export default function CheckinPage({ params }: CheckinPageProps) {
-    const [eventId, setEventId] = useState<string>('')
-    const [stats, setStats] = useState(mockStats)
-    const [recentCheckins, setRecentCheckins] = useState(mockRecentCheckins)
-    const [activeTab, setActiveTab] = useState<'scanner' | 'stats'>('scanner')
+export default async function CheckinPage({ params }: CheckinPageProps) {
+    const { eventId } = await params
+    const supabase = await createClient()
 
-    useEffect(() => {
-        params.then(({ eventId }) => {
-            setEventId(eventId)
-        })
-    }, [params])
-
-    // Simulate real-time updates
-    useEffect(() => {
-        const interval = setInterval(() => {
-            // In production, this would be a Supabase real-time subscription
-            setStats(prev => ({
-                ...prev,
-                checkedIn: prev.checkedIn + Math.floor(Math.random() * 2),
-            }))
-        }, 30000) // Update every 30 seconds
-
-        return () => clearInterval(interval)
-    }, [])
-
-    const handleScanResult = (result: { valid: boolean; attendee?: { name: string | null } }) => {
-        if (result.valid && result.attendee?.name) {
-            // Add to recent check-ins
-            setRecentCheckins(prev => [
-                { id: Date.now().toString(), name: result.attendee!.name || 'Guest', ticketType: 'General', time: 'Just now' },
-                ...prev.slice(0, 4),
-            ])
-
-            // Update stats
-            setStats(prev => ({
-                ...prev,
-                checkedIn: prev.checkedIn + 1,
-                pendingCheckin: prev.pendingCheckin - 1,
-            }))
-        }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+        redirect('/login')
     }
 
-    const event = mockEvent
-    const checkinProgress = (stats.checkedIn / stats.totalTickets) * 100
+    // Fetch event details
+    const { data: event } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single()
+
+    if (!event) {
+        notFound()
+    }
+
+    // Verify ownership (or admin/staff role later)
+    if (event.organizer_id !== user.id) {
+        // TODO: Check for staff/admin role
+        redirect('/dashboard/events')
+    }
+
+    // Fetch Stats
+    // 1. Total tickets sold (valid tickets)
+    const { count: totalTickets } = await supabase
+        .from('tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .neq('status', 'cancelled')
+
+    // 2. Checked in count
+    const { count: checkedInCount } = await supabase
+        .from('tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('status', 'used')
+
+    // 3. Last Hour Check-ins
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { count: lastHourCount } = await supabase
+        .from('check_ins')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .gt('scanned_at', oneHourAgo)
+
+    // 4. Recent Check-ins
+    const { data: recentLogs } = await supabase
+        .from('check_ins')
+        .select(`
+            id,
+            scanned_at,
+            tickets (
+                id,
+                status,
+                ticket_types (name),
+                profiles:user_id (
+                    full_name,
+                    email
+                )
+            )
+        `)
+        .eq('event_id', eventId)
+        .order('scanned_at', { ascending: false })
+        .limit(10)
+
+    const stats = {
+        totalTickets: totalTickets || 0,
+        checkedIn: checkedInCount || 0,
+        pendingCheckin: (totalTickets || 0) - (checkedInCount || 0),
+        checkinsLastHour: lastHourCount || 0
+    }
+
+    const checkinProgress = stats.totalTickets > 0
+        ? (stats.checkedIn / stats.totalTickets) * 100
+        : 0
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -97,7 +110,7 @@ export default function CheckinPage({ params }: CheckinPageProps) {
             <header className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
                 <div className="mx-auto max-w-lg px-4 py-3">
                     <div className="flex items-center justify-between">
-                        <Link href="/dashboard/events">
+                        <Link href={`/dashboard/events`}>
                             <Button variant="ghost" size="icon">
                                 <ArrowLeft className="h-5 w-5" />
                             </Button>
@@ -106,178 +119,123 @@ export default function CheckinPage({ params }: CheckinPageProps) {
                             <h1 className="font-semibold text-slate-900 dark:text-white truncate max-w-[200px]">
                                 {event.title}
                             </h1>
-                            <p className="text-xs text-slate-500">{event.venue_name}</p>
+                            <p className="text-xs text-slate-500">{event.venue_name || 'Online Event'}</p>
                         </div>
-                        <Badge variant="success" className="animate-pulse">
-                            Live
+                        <Badge variant={event.status === 'published' ? 'success' : 'secondary'}>
+                            {event.status === 'published' ? 'Live' : event.status}
                         </Badge>
                     </div>
                 </div>
             </header>
 
-            {/* Tab Navigation */}
-            <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                <div className="mx-auto max-w-lg px-4">
-                    <div className="flex">
-                        <button
-                            onClick={() => setActiveTab('scanner')}
-                            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'scanner'
-                                    ? 'border-violet-500 text-violet-600'
-                                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                                }`}
-                        >
-                            Scanner
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('stats')}
-                            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'stats'
-                                    ? 'border-violet-500 text-violet-600'
-                                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                                }`}
-                        >
-                            Dashboard
-                        </button>
-                    </div>
+            {/* Note: I'm removing the Client-side Tabs for simplicity in Server Component
+                Using a stacked layout or client wrapper if needed. 
+                For now, Scanner on top, stats below is fine for mobile-first check-in app.
+            */}
+
+            <main className="mx-auto max-w-lg px-4 py-6 space-y-6">
+
+                {/* Scanner Section */}
+                <div className="space-y-4">
+                    <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider">Scanner</h2>
+                    <QRScanner eventId={eventId} />
                 </div>
-            </div>
 
-            {/* Main Content */}
-            <main className="mx-auto max-w-lg px-4 py-6">
-                {activeTab === 'scanner' ? (
-                    <div className="space-y-6">
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <Card>
-                                <CardContent className="p-4 text-center">
-                                    <div className="text-2xl font-bold text-emerald-600">{stats.checkedIn}</div>
-                                    <div className="text-xs text-slate-500">Checked In</div>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardContent className="p-4 text-center">
-                                    <div className="text-2xl font-bold text-slate-600">{stats.pendingCheckin}</div>
-                                    <div className="text-xs text-slate-500">Pending</div>
-                                </CardContent>
-                            </Card>
-                        </div>
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                    <Card>
+                        <CardContent className="p-4 text-center">
+                            <div className="text-2xl font-bold text-emerald-600">{stats.checkedIn}</div>
+                            <div className="text-xs text-slate-500">Checked In</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardContent className="p-4 text-center">
+                            <div className="text-2xl font-bold text-slate-600">{stats.pendingCheckin}</div>
+                            <div className="text-xs text-slate-500">Pending</div>
+                        </CardContent>
+                    </Card>
+                </div>
 
-                        {/* QR Scanner */}
-                        <QRScanner eventId={eventId} onScanResult={handleScanResult} />
+                {/* Detailed Stats */}
+                <div className="space-y-4">
+                    <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider">Statistics</h2>
+
+                    <Card>
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium">Progress</span>
+                                <span className="text-sm text-slate-500">{Math.round(checkinProgress)}%</span>
+                            </div>
+                            <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700">
+                                <div
+                                    className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-600"
+                                    style={{ width: `${checkinProgress}%` }}
+                                />
+                            </div>
+                            <div className="mt-4 grid grid-cols-2 gap-4 text-xs text-slate-500">
+                                <div className="flex items-center gap-2">
+                                    <Ticket className="w-4 h-4" />
+                                    <span>{stats.totalTickets} Total Tickets</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4" />
+                                    <span>{stats.checkinsLastHour}/hr Rate</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Recent Check-ins */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-medium text-slate-500 uppercase tracking-wider">Recent Activity</h2>
+                        <Button variant="ghost" size="sm" asChild>
+                            <a href={`/dashboard/events/${eventId}/checkin`}>
+                                <RefreshCw className="w-4 h-4 mr-1" />
+                                Refresh
+                            </a>
+                        </Button>
                     </div>
-                ) : (
-                    <div className="space-y-6">
-                        {/* Stats Cards */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <Card>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30">
-                                            <Ticket className="h-5 w-5 text-violet-600" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xl font-bold">{stats.totalTickets}</div>
-                                            <div className="text-xs text-slate-500">Total Tickets</div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
 
-                            <Card>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                                            <CheckCircle className="h-5 w-5 text-emerald-600" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xl font-bold">{stats.checkedIn}</div>
-                                            <div className="text-xs text-slate-500">Checked In</div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                    <Card>
+                        <CardContent className="p-0">
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {!recentLogs || recentLogs.length === 0 ? (
+                                    <div className="p-4 text-center text-sm text-muted-foreground">No recent check-ins</div>
+                                ) : (
+                                    recentLogs.map((log) => {
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        const ticket = log.tickets as any
+                                        const profile = ticket?.profiles
+                                        const ticketType = ticket?.ticket_types?.name
 
-                            <Card>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-                                            <Clock className="h-5 w-5 text-amber-600" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xl font-bold">{stats.pendingCheckin}</div>
-                                            <div className="text-xs text-slate-500">Pending</div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
-                                            <TrendingUp className="h-5 w-5 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xl font-bold">{stats.checkinsLastHour}</div>
-                                            <div className="text-xs text-slate-500">Last Hour</div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium">Check-in Progress</span>
-                                    <span className="text-sm text-slate-500">{Math.round(checkinProgress)}%</span>
-                                </div>
-                                <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700">
-                                    <div
-                                        className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-500"
-                                        style={{ width: `${checkinProgress}%` }}
-                                    />
-                                </div>
-                                <p className="text-xs text-slate-500 mt-2">
-                                    {stats.checkedIn} of {stats.totalTickets} attendees
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        {/* Recent Check-ins */}
-                        <Card>
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-base">Recent Check-ins</CardTitle>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <RefreshCw className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    {recentCheckins.map((checkin) => (
-                                        <div
-                                            key={checkin.id}
-                                            className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                                                    <CheckCircle className="h-4 w-4 text-emerald-600" />
+                                        return (
+                                            <div key={log.id} className="flex items-center justify-between p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                                                        <CheckCircle className="h-4 w-4 text-emerald-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                            {profile?.full_name || 'Guest User'}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500">{ticketType}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-medium">{checkin.name}</p>
-                                                    <p className="text-xs text-slate-500">{checkin.ticketType}</p>
-                                                </div>
+                                                <span className="text-xs text-slate-400">
+                                                    {new Date(log.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
                                             </div>
-                                            <span className="text-xs text-slate-400">{checkin.time}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
+                                        )
+                                    })
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
             </main>
         </div>
     )

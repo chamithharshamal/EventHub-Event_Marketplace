@@ -263,6 +263,13 @@ export default async function EventsManagementPage() {
                                             {/* Actions */}
                                             <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4">
                                                 <div className="flex items-center gap-2">
+                                                    <Link href={`/dashboard/events/${event.id}/checkin`}>
+                                                        <Button variant="ghost" size="icon" title="Check-in App">
+                                                            <div className="h-4 w-4">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="5" height="5" x="3" y="3" rx="1" /><rect width="5" height="5" x="16" y="3" rx="1" /><rect width="5" height="5" x="3" y="16" rx="1" /><path d="M21 16h-3a2 2 0 0 0-2 2v3" /><path d="M21 21v.01" /><path d="M12 7v3a2 2 0 0 1-2 2H7" /><path d="M3 12h.01" /><path d="M12 3h.01" /><path d="M12 16v.01" /><path d="M16 12h1" /><path d="M21 12v.01" /><path d="M12 21v-1" /></svg>
+                                                            </div>
+                                                        </Button>
+                                                    </Link>
                                                     <Link href={`/events/${event.slug}`}>
                                                         <Button variant="ghost" size="icon">
                                                             <Eye className="h-4 w-4" />

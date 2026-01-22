@@ -136,13 +136,13 @@ async function generateTickets(
     }>,
     customerEmail?: string | null
 ) {
-    const { generateQRCodeData, signQRCode, generateQRCodeImage } = await import('@/lib/qr')
+    const { generateTicketQR } = await import('@/lib/qr')
     const { sendEmail, generateTicketEmailHtml } = await import('@/lib/email')
 
     // Get event details
     const { data: event } = await supabase
         .from('events')
-        .select('title')
+        .select('title, tenant_id, end_date')
         .eq('id', eventId)
         .single()
 
@@ -160,7 +160,7 @@ async function generateTickets(
 
     const ticketTypeMap = new Map<string, string>(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ticketTypes?.map((t: any) => [t.id, t.name]) || []
+        ticketTypes?.map((t: any) => [t.id, t.name] as [string, string]) || []
     )
 
     for (const item of orderItems) {
@@ -168,8 +168,14 @@ async function generateTickets(
 
         for (let i = 0; i < item.quantity; i++) {
             const ticketId = crypto.randomUUID()
-            const qrData = generateQRCodeData(ticketId, eventId)
-            const qrSignature = signQRCode(qrData)
+
+            // Generate secure QR code
+            const { qrCodeData, qrSignature, qrImageDataUrl } = await generateTicketQR(
+                ticketId,
+                eventId,
+                event.tenant_id,
+                new Date(event.end_date)
+            )
 
             tickets.push({
                 id: ticketId,
@@ -178,19 +184,19 @@ async function generateTickets(
                 order_id: orderId,
                 user_id: userId,
                 status: 'valid',
-                qr_code_data: qrData,
+                qr_code_data: qrCodeData, // Now storing the full securely signed JSON payload
                 qr_signature: qrSignature,
+                tenant_id: event.tenant_id // Ensure tenant_id is included
             })
 
             // Queue email sending
             if (customerEmail) {
                 emailPromises.push(async () => {
                     try {
-                        const qrImage = await generateQRCodeImage(qrData)
                         const html = generateTicketEmailHtml(
                             event.title,
                             ticketTypeName,
-                            qrImage,
+                            qrImageDataUrl,
                             orderId
                         )
                         await sendEmail({

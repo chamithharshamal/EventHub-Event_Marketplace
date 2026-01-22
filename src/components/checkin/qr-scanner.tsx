@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { validateTicket, performCheckIn } from '@/app/actions/checkin'
 
 interface ScanResult {
     valid: boolean
@@ -86,42 +87,95 @@ export function QRScanner({ eventId, onScanResult }: QRScannerProps) {
         setLastResult(null)
 
         try {
-            const response = await fetch('/api/checkin/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ qrData, eventId }),
-            })
+            // 1. Validate Ticket
+            const validation = await validateTicket(qrData, eventId)
 
-            const result: ScanResult = await response.json()
+            if (validation.valid) {
+                // 2. Perform Check-in automatically
+                // We need to extract ticket ID. validation result doesn't explicitly have it in the type 
+                // but we can parse the QR again or update action. 
+                // Let's rely on the parsing we do here.
+                let ticketId = ''
+                try {
+                    const payload = JSON.parse(qrData)
+                    ticketId = payload.tid
+                } catch (e) {
+                    throw new Error('Invalid QR format')
+                }
 
-            setLastResult(result)
-            onScanResult?.(result)
+                const checkIn = await performCheckIn(ticketId, eventId)
 
-            // Play sound feedback
-            playSound(result.valid ? 'success' : 'error')
+                if (checkIn.success) {
+                    const result: ScanResult = {
+                        valid: true,
+                        status: 'SUCCESS',
+                        message: 'Check-in Successful',
+                        ticketType: validation.ticketType || 'Standard',
+                        attendee: validation.attendee || { name: 'Guest', email: null },
+                        checkedInAt: new Date().toISOString()
+                    }
+                    setLastResult(result)
+                    onScanResult?.(result)
+                    playSound('success')
+                    // Vibrate
+                    if ('vibrate' in navigator) navigator.vibrate([100])
+                } else {
+                    // Check-in failed (maybe DB error or race condition)
+                    const result: ScanResult = {
+                        valid: false,
+                        status: 'ERROR',
+                        message: checkIn.error || 'Check-in failed',
+                        attendee: validation.attendee
+                    }
+                    setLastResult(result)
+                    playSound('error')
+                }
 
-            // Vibrate on mobile
-            if ('vibrate' in navigator) {
-                navigator.vibrate(result.valid ? [100] : [100, 50, 100])
+            } else {
+                // Invalid ticket (Expired, Wrong Event, etc)
+                const result: ScanResult = {
+                    valid: false,
+                    status: validation.status,
+                    message: getValidationMessage(validation.status),
+                    ticketType: validation.ticketType,
+                    attendee: validation.attendee
+                }
+                setLastResult(result)
+                playSound('error')
+                if ('vibrate' in navigator) navigator.vibrate([100, 50, 100])
             }
+
         } catch (err) {
+            console.error('Scan error:', err)
             const errorResult: ScanResult = {
                 valid: false,
-                status: 'NETWORK_ERROR',
-                message: 'Network error. Please try again.',
+                status: 'scan_error',
+                message: 'Failed to process ticket. Please try again.',
             }
             setLastResult(errorResult)
             playSound('error')
         } finally {
             setIsLoading(false)
 
-            // Reset cooldown after 2 seconds
+            // Reset cooldown after 2.5 seconds
             setTimeout(() => {
                 cooldownRef.current = false
                 lastScannedRef.current = null
-            }, 2000)
+            }, 2500)
         }
     }, [eventId, onScanResult, playSound])
+
+    function getValidationMessage(status: string): string {
+        switch (status) {
+            case 'ALREADY_USED': return 'Ticket already used'
+            case 'TICKET_EXPIRED': return 'Ticket has expired'
+            case 'WRONG_EVENT': return 'Ticket is for a different event'
+            case 'INVALID_SIGNATURE': return 'Invalid ticket signature'
+            case 'TICKET_CANCELLED': return 'Ticket was cancelled'
+            case 'TICKET_NOT_FOUND': return 'Ticket not found'
+            default: return 'Invalid ticket'
+        }
+    }
 
     const startScanning = useCallback(async () => {
         if (!containerRef.current) return

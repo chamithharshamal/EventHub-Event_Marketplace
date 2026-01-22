@@ -11,7 +11,8 @@ import {
     User,
     LogOut,
     LayoutDashboard,
-    CalendarDays
+    CalendarDays,
+    Heart
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -83,6 +84,12 @@ export function Navbar({ user }: NavbarProps) {
                 <div className="flex items-center gap-3">
                     {user ? (
                         <>
+                            <Link href="/wishlist" className="hidden sm:block">
+                                <Button variant="ghost" size="sm">
+                                    <Heart className="h-4 w-4" />
+                                    Wishlist
+                                </Button>
+                            </Link>
                             <Link href="/my-tickets" className="hidden sm:block">
                                 <Button variant="ghost" size="sm">
                                     <Ticket className="h-4 w-4" />
@@ -148,6 +155,14 @@ export function Navbar({ user }: NavbarProps) {
                         ))}
                         {user && (
                             <>
+                                <Link
+                                    href="/wishlist"
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    <Heart className="h-4 w-4" />
+                                    Wishlist
+                                </Link>
                                 <Link
                                     href="/my-tickets"
                                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"

@@ -46,12 +46,12 @@ export async function validateTicket(
         .single()
 
     // TODO: Add robust role check here (if we add staff table later)
-    if (eventRole?.organizer_id !== user.id) {
+    if ((eventRole as { organizer_id: string } | null)?.organizer_id !== user.id) {
         // return { valid: false, status: 'UNAUTHORIZED' }
     }
 
     // Fetch ticket
-    const { data: ticket, error } = await supabase
+    const { data: ticketData, error } = await supabase
         .from('tickets')
         .select(`
             *,
@@ -66,9 +66,20 @@ export async function validateTicket(
         .eq('id', payload.tid)
         .single()
 
-    if (error || !ticket) {
+    if (error || !ticketData) {
         return { valid: false, status: 'TICKET_NOT_FOUND' }
     }
+
+    // Explicitly define the expected structure
+    // We avoid 'typeof ticketData' in case it's inferred as never/any improperly
+    type TicketWithDetails = {
+        status: string
+        profiles: { full_name: string | null, email: string } | null
+        ticket_types: { name: string } | null
+    }
+
+    // Cast forcefully
+    const ticket = ticketData as unknown as TicketWithDetails
 
     // Check status
     if (ticket.status === 'used') {
@@ -77,10 +88,10 @@ export async function validateTicket(
             valid: false,
             status: 'ALREADY_USED',
             attendee: {
-                name: ticket.profiles?.full_name,
-                email: ticket.profiles?.email
+                name: ticket.profiles?.full_name || null,
+                email: ticket.profiles?.email || null
             },
-            ticketType: ticket.ticket_types?.name
+            ticketType: ticket.ticket_types?.name || undefined
         }
     }
 
@@ -92,10 +103,10 @@ export async function validateTicket(
         valid: true,
         status: 'SUCCESS',
         attendee: {
-            name: ticket.profiles?.full_name,
-            email: ticket.profiles?.email
+            name: ticket.profiles?.full_name || null,
+            email: ticket.profiles?.email || null
         },
-        ticketType: ticket.ticket_types?.name
+        ticketType: ticket.ticket_types?.name || undefined
     }
 }
 
@@ -120,8 +131,10 @@ export async function performCheckIn(
     // Let's try normal client first to respect RLS
     // Transaction: Update ticket status -> Insert check-in record
 
-    const { error: updateError } = await supabase
-        .from('tickets')
+    // Cast the query builder to any to avoid "Validation of type 'never'" errors 
+    // which can happen if TypeScript fails to infer the Update type from the generic client
+    const { error: updateError } = await (supabase
+        .from('tickets') as any)
         .update({
             status: 'used',
             checked_in_at: new Date().toISOString(),
@@ -136,8 +149,8 @@ export async function performCheckIn(
     }
 
     // Insert audit log
-    const { error: logError } = await supabase
-        .from('check_ins')
+    const { error: logError } = await (supabase
+        .from('check_ins') as any)
         .insert({
             ticket_id: ticketId,
             event_id: eventId,

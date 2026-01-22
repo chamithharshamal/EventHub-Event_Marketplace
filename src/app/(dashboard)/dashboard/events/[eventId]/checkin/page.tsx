@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { type Event } from '@/types/database'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -34,11 +35,13 @@ export default async function CheckinPage({ params }: CheckinPageProps) {
     }
 
     // Fetch event details
-    const { data: event } = await supabase
+    const { data: eventData } = await supabase
         .from('events')
         .select('*')
         .eq('id', eventId)
         .single()
+
+    const event = eventData as Event | null
 
     if (!event) {
         notFound()
@@ -205,9 +208,21 @@ export default async function CheckinPage({ params }: CheckinPageProps) {
                                 {!recentLogs || recentLogs.length === 0 ? (
                                     <div className="p-4 text-center text-sm text-muted-foreground">No recent check-ins</div>
                                 ) : (
-                                    recentLogs.map((log) => {
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        const ticket = log.tickets as any
+                                    recentLogs.map((logItem) => {
+                                        // Explicitly define the expected shape of the log item with joins
+                                        type CheckInLog = {
+                                            id: string
+                                            scanned_at: string
+                                            tickets: {
+                                                id: string
+                                                status: string
+                                                ticket_types: { name: string } | null
+                                                profiles: { full_name: string | null; email: string } | null
+                                            } | null
+                                        }
+
+                                        const log = logItem as unknown as CheckInLog
+                                        const ticket = log.tickets
                                         const profile = ticket?.profiles
                                         const ticketType = ticket?.ticket_types?.name
 

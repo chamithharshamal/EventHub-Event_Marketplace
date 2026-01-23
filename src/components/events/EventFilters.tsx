@@ -215,7 +215,7 @@ export function EventFilters({ className }: EventFiltersProps) {
 
             {/* Mobile Filters Panel */}
             {mobileFiltersOpen && (
-                <div className="sm:hidden bg-white/10 backdrop-blur-sm rounded-xl p-4 space-y-4">
+                <div className="sm:hidden bg-white/10 dark:text-white backdrop-blur-sm rounded-xl p-4 space-y-4">
                     <FilterSection
                         label="Date"
                         value={currentDate}
@@ -420,7 +420,7 @@ export function EventSortDropdown({ className }: { className?: string }) {
             value={currentSort}
             onChange={(e) => handleChange(e.target.value)}
             className={cn(
-                'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800',
+                'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white',
                 className
             )}
         >

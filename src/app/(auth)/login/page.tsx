@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { getURL } from '@/lib/utils'
 
 function LoginForm() {
     const router = useRouter()
@@ -51,7 +52,7 @@ function LoginForm() {
         await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/auth/callback?redirectTo=${redirectTo}`,
+                redirectTo: `${getURL()}auth/callback?redirectTo=${redirectTo}`,
             },
         })
     }

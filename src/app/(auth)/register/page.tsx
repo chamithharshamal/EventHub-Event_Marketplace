@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { getURL } from '@/lib/utils'
 
 export default function RegisterPage() {
     const router = useRouter()
@@ -67,7 +68,7 @@ export default function RegisterPage() {
         await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/auth/callback?redirectTo=/dashboard`,
+                redirectTo: `${getURL()}auth/callback?redirectTo=/dashboard`,
             },
         })
     }

@@ -111,7 +111,7 @@ export function Navbar({ user }: NavbarProps) {
                     ) : (
                         <>
                             <Link href="/login" className="hidden sm:block">
-                                <Button variant="ghost" size="sm">
+                                <Button variant="secondary" size="sm">
                                     Sign In
                                 </Button>
                             </Link>

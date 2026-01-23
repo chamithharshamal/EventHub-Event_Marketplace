@@ -61,7 +61,27 @@ CREATE TRIGGER on_auth_user_created
 
 
 -- =============================================
--- 3. DECREMENT TICKETS (FOR REFUNDS)
+-- 3. HELPER FUNCTION TO CHECK ADMIN
+-- =============================================
+-- SECURITY DEFINER makes this run as the DB owner, bypassing RLS
+-- This is critical to avoid infinite recursion when policies check roles
+
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid()
+        AND role = 'admin'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION is_admin() TO authenticated;
+
+
+-- =============================================
+-- 4. DECREMENT TICKETS (FOR REFUNDS)
 -- =============================================
 
 CREATE OR REPLACE FUNCTION decrement_tickets_sold(

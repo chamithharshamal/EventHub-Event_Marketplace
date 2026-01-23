@@ -58,7 +58,9 @@ async function getMyEvents() {
         .order('created_at', { ascending: false })
 
     if (error) {
-        console.error('Error fetching events:', error)
+        console.error('Error fetching events:', JSON.stringify(error, null, 2))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((error as any).message) console.error('Error message:', (error as any).message)
         return []
     }
 

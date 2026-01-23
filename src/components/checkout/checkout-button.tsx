@@ -62,11 +62,11 @@ export function CheckoutButton({ eventId, eventSlug, ticketTypes, disabled }: Ch
         <div className="space-y-4">
             {ticketTypes.length > 1 && (
                 <div>
-                    <label className="block text-sm font-medium mb-2">Select Ticket</label>
+                    <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-white">Select Ticket</label>
                     <select
                         value={selectedTicket}
                         onChange={(e) => setSelectedTicket(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
                         {ticketTypes.map((ticket) => {
                             const available = ticket.quantity_total - ticket.quantity_sold
@@ -81,11 +81,11 @@ export function CheckoutButton({ eventId, eventSlug, ticketTypes, disabled }: Ch
             )}
 
             <div>
-                <label className="block text-sm font-medium mb-2">Quantity</label>
+                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-white">Quantity</label>
                 <select
                     value={quantity}
                     onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 >
                     {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((num) => (
                         <option key={num} value={num}>

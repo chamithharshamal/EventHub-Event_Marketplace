@@ -1,255 +1,223 @@
 -- =============================================
 -- ROW LEVEL SECURITY POLICIES
--- Event Marketplace & Ticketing System
+-- Event Marketplace & Ticketing System - Consolidated & Fixed
 -- =============================================
--- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/_/sql
 
 -- =============================================
 -- 1. ENABLE RLS ON ALL TABLES
 -- =============================================
 
-ALTER TABLE IF EXISTS profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS ticket_types ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS tickets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS check_ins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.ticket_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.check_ins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.favorites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.waitlists ENABLE ROW LEVEL SECURITY;
 
 -- =============================================
--- 2. PROFILES POLICIES
+-- 2. TENANTS POLICIES
+-- =============================================
+
+-- Enable SELECT for authenticated users so they can find an existing tenant
+DROP POLICY IF EXISTS "Allow authenticated SELECT on tenants" ON public.tenants;
+CREATE POLICY "Allow authenticated SELECT on tenants"
+    ON public.tenants FOR SELECT
+    TO authenticated
+    USING (true);
+
+-- Enable INSERT for authenticated users so they can create their first tenant
+DROP POLICY IF EXISTS "Allow authenticated INSERT on tenants" ON public.tenants;
+CREATE POLICY "Allow authenticated INSERT on tenants"
+    ON public.tenants FOR INSERT
+    TO authenticated
+    WITH CHECK (true);
+
+-- Enable UPDATE for users to manage their own tenant
+DROP POLICY IF EXISTS "Allow users to UPDATE their own tenant" ON public.tenants;
+CREATE POLICY "Allow users to UPDATE their own tenant"
+    ON public.tenants FOR UPDATE
+    TO authenticated
+    USING (
+        id IN (
+            SELECT tenant_id FROM public.profiles WHERE id = auth.uid()
+        )
+    );
+
+-- =============================================
+-- 3. PROFILES POLICIES
 -- =============================================
 
 -- Users can view their own profile
-DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
-    ON profiles FOR SELECT
+    ON public.profiles FOR SELECT
     USING (auth.uid() = id);
 
 -- Users can update their own profile
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
-    ON profiles FOR UPDATE
-    USING (auth.uid() = id);
-
--- Users can insert their own profile (on signup)
-DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
-CREATE POLICY "Users can insert own profile"
-    ON profiles FOR INSERT
+    ON public.profiles FOR UPDATE
+    USING (auth.uid() = id)
     WITH CHECK (auth.uid() = id);
 
+-- Users can insert their own profile (on signup)
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+CREATE POLICY "Users can insert own profile"
+    ON public.profiles FOR INSERT
+    WITH CHECK (auth.uid() = id);
+
+-- Public profiles are viewable (for organizers)
+DROP POLICY IF EXISTS "Public profiles are viewable" ON public.profiles;
+CREATE POLICY "Public profiles are viewable"
+    ON public.profiles FOR SELECT
+    USING (is_public = true);
+
 -- =============================================
--- 3. EVENTS POLICIES
+-- 4. EVENTS POLICIES
 -- =============================================
 
 -- Anyone can view published events
-DROP POLICY IF EXISTS "Anyone can view published events" ON events;
+DROP POLICY IF EXISTS "Anyone can view published events" ON public.events;
 CREATE POLICY "Anyone can view published events"
-    ON events FOR SELECT
+    ON public.events FOR SELECT
     USING (status = 'published');
 
 -- Organizers can view their own events (any status)
-DROP POLICY IF EXISTS "Organizers can view own events" ON events;
+DROP POLICY IF EXISTS "Organizers can view own events" ON public.events;
 CREATE POLICY "Organizers can view own events"
-    ON events FOR SELECT
+    ON public.events FOR SELECT
     USING (auth.uid() = organizer_id);
 
 -- Organizers can create events
-DROP POLICY IF EXISTS "Organizers can create events" ON events;
+DROP POLICY IF EXISTS "Organizers can create events" ON public.events;
 CREATE POLICY "Organizers can create events"
-    ON events FOR INSERT
+    ON public.events FOR INSERT
     WITH CHECK (auth.uid() = organizer_id);
 
 -- Organizers can update their own events
-DROP POLICY IF EXISTS "Organizers can update own events" ON events;
-CREATE POLICY "Organizers can update own events"
-    ON events FOR UPDATE
+DROP POLICY IF EXISTS "Organizers can update their own events" ON public.events;
+CREATE POLICY "Organizers can update their own events"
+    ON public.events FOR UPDATE
     USING (auth.uid() = organizer_id);
 
 -- Organizers can delete their own events
-DROP POLICY IF EXISTS "Organizers can delete own events" ON events;
+DROP POLICY IF EXISTS "Organizers can delete own events" ON public.events;
 CREATE POLICY "Organizers can delete own events"
-    ON events FOR DELETE
+    ON public.events FOR DELETE
     USING (auth.uid() = organizer_id);
 
+-- ADMIN: Admins can view/update all events using the safe is_admin() function
+DROP POLICY IF EXISTS "Admins can view all events" ON public.events;
+CREATE POLICY "Admins can view all events"
+    ON public.events FOR SELECT
+    USING ( is_admin() );
+
+DROP POLICY IF EXISTS "Admins can update any event" ON public.events;
+CREATE POLICY "Admins can update any event"
+    ON public.events FOR UPDATE
+    USING ( is_admin() )
+    WITH CHECK ( is_admin() );
+
 -- =============================================
--- 4. TICKET_TYPES POLICIES
+-- 5. TICKET_TYPES POLICIES
 -- =============================================
 
 -- Anyone can view ticket types for published events
-DROP POLICY IF EXISTS "Anyone can view ticket types" ON ticket_types;
+DROP POLICY IF EXISTS "Anyone can view ticket types" ON public.ticket_types;
 CREATE POLICY "Anyone can view ticket types"
-    ON ticket_types FOR SELECT
+    ON public.ticket_types FOR SELECT
     USING (
         EXISTS (
-            SELECT 1 FROM events 
+            SELECT 1 FROM public.events 
             WHERE events.id = ticket_types.event_id 
-            AND (events.status = 'published' OR events.organizer_id = auth.uid())
+            AND (events.status = 'published' OR events.organizer_id = auth.uid() OR is_admin())
         )
     );
 
 -- Organizers can manage ticket types for their events
-DROP POLICY IF EXISTS "Organizers can manage ticket types" ON ticket_types;
+DROP POLICY IF EXISTS "Organizers can manage ticket types" ON public.ticket_types;
 CREATE POLICY "Organizers can manage ticket types"
-    ON ticket_types FOR ALL
+    ON public.ticket_types FOR ALL
     USING (
         EXISTS (
-            SELECT 1 FROM events 
+            SELECT 1 FROM public.events 
             WHERE events.id = ticket_types.event_id 
             AND events.organizer_id = auth.uid()
         )
     );
 
 -- =============================================
--- 5. ORDERS POLICIES
+-- 6. ORDERS POLICIES
 -- =============================================
 
 -- Users can view their own orders
-DROP POLICY IF EXISTS "Users can view own orders" ON orders;
+DROP POLICY IF EXISTS "Users can view own orders" ON public.orders;
 CREATE POLICY "Users can view own orders"
-    ON orders FOR SELECT
+    ON public.orders FOR SELECT
     USING (auth.uid() = user_id);
 
 -- Organizers can view orders for their events
-DROP POLICY IF EXISTS "Organizers can view event orders" ON orders;
+DROP POLICY IF EXISTS "Organizers can view event orders" ON public.orders;
 CREATE POLICY "Organizers can view event orders"
-    ON orders FOR SELECT
+    ON public.orders FOR SELECT
     USING (
         EXISTS (
-            SELECT 1 FROM events 
+            SELECT 1 FROM public.events 
             WHERE events.id = orders.event_id 
             AND events.organizer_id = auth.uid()
         )
     );
 
 -- Users can create orders (for checkout)
-DROP POLICY IF EXISTS "Users can create orders" ON orders;
+DROP POLICY IF EXISTS "Users can create orders" ON public.orders;
 CREATE POLICY "Users can create orders"
-    ON orders FOR INSERT
+    ON public.orders FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
 -- Service role can update orders (for webhooks)
-DROP POLICY IF EXISTS "Service can update orders" ON orders;
+DROP POLICY IF EXISTS "Service can update orders" ON public.orders;
 CREATE POLICY "Service can update orders"
-    ON orders FOR UPDATE
-    USING (true)
-    WITH CHECK (true);
-
--- =============================================
--- 6. ORDER_ITEMS POLICIES
--- =============================================
-
--- Users can view their own order items
-DROP POLICY IF EXISTS "Users can view own order items" ON order_items;
-CREATE POLICY "Users can view own order items"
-    ON order_items FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM orders 
-            WHERE orders.id = order_items.order_id 
-            AND orders.user_id = auth.uid()
-        )
-    );
-
--- Organizers can view order items for their events
-DROP POLICY IF EXISTS "Organizers can view event order items" ON order_items;
-CREATE POLICY "Organizers can view event order items"
-    ON order_items FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM orders 
-            JOIN events ON events.id = orders.event_id
-            WHERE orders.id = order_items.order_id 
-            AND events.organizer_id = auth.uid()
-        )
-    );
-
--- Service role can insert order items
-DROP POLICY IF EXISTS "Service can insert order items" ON order_items;
-CREATE POLICY "Service can insert order items"
-    ON order_items FOR INSERT
-    WITH CHECK (true);
+    ON public.orders FOR UPDATE
+    USING (true);
 
 -- =============================================
 -- 7. TICKETS POLICIES
 -- =============================================
 
 -- Users can view their own tickets
-DROP POLICY IF EXISTS "Users can view own tickets" ON tickets;
+DROP POLICY IF EXISTS "Users can view own tickets" ON public.tickets;
 CREATE POLICY "Users can view own tickets"
-    ON tickets FOR SELECT
+    ON public.tickets FOR SELECT
     USING (auth.uid() = user_id);
 
--- Organizers can view tickets for their events
-DROP POLICY IF EXISTS "Organizers can view event tickets" ON tickets;
-CREATE POLICY "Organizers can view event tickets"
-    ON tickets FOR SELECT
+-- Organizers can view/update tickets for their events (for check-in)
+DROP POLICY IF EXISTS "Organizers can manage event tickets" ON public.tickets;
+CREATE POLICY "Organizers can manage event tickets"
+    ON public.tickets FOR ALL
     USING (
         EXISTS (
-            SELECT 1 FROM events 
+            SELECT 1 FROM public.events 
             WHERE events.id = tickets.event_id 
             AND events.organizer_id = auth.uid()
         )
     );
 
--- Organizers can update tickets (for check-in)
-DROP POLICY IF EXISTS "Organizers can update tickets" ON tickets;
-CREATE POLICY "Organizers can update tickets"
-    ON tickets FOR UPDATE
-    USING (
-        EXISTS (
-            SELECT 1 FROM events 
-            WHERE events.id = tickets.event_id 
-            AND events.organizer_id = auth.uid()
-        )
-    );
-
--- Service role can create tickets (from webhooks)
-DROP POLICY IF EXISTS "Service can create tickets" ON tickets;
-CREATE POLICY "Service can create tickets"
-    ON tickets FOR INSERT
-    WITH CHECK (true);
-
 -- =============================================
--- 8. CHECK_INS POLICIES
+-- 8. FAVORITES & WAITLISTS
 -- =============================================
 
--- Organizers can view check-ins for their events
-DROP POLICY IF EXISTS "Organizers can view check-ins" ON check_ins;
-CREATE POLICY "Organizers can view check-ins"
-    ON check_ins FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM events 
-            WHERE events.id = check_ins.event_id 
-            AND events.organizer_id = auth.uid()
-        )
-    );
+-- Users can manage their own favorites
+DROP POLICY IF EXISTS "Users can manage own favorites" ON public.favorites;
+CREATE POLICY "Users can manage own favorites"
+    ON public.favorites FOR ALL
+    USING (auth.uid() = user_id);
 
--- Organizers can create check-ins
-DROP POLICY IF EXISTS "Organizers can create check-ins" ON check_ins;
-CREATE POLICY "Organizers can create check-ins"
-    ON check_ins FOR INSERT
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM events 
-            WHERE events.id = check_ins.event_id 
-            AND events.organizer_id = auth.uid()
-        )
-    );
-
--- =============================================
--- 9. GRANT SERVICE ROLE BYPASS
--- =============================================
--- The service role key bypasses RLS by default
--- This is used for webhooks and server-side operations
-
--- =============================================
--- VERIFICATION QUERIES
--- =============================================
--- Run these to verify policies are in place:
-
--- SELECT tablename, policyname, permissive, roles, cmd, qual
--- FROM pg_policies
--- WHERE schemaname = 'public'
--- ORDER BY tablename, policyname;
+-- Users can manage their own waitlist entries
+DROP POLICY IF EXISTS "Users can manage own waitlist entries" ON public.waitlists;
+CREATE POLICY "Users can manage own waitlist entries"
+    ON public.waitlists FOR ALL
+    USING (auth.uid() = user_id);

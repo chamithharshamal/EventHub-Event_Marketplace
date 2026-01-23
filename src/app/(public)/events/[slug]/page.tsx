@@ -210,24 +210,24 @@ export default async function EventPage({ params }: EventPageProps) {
                                         event.description.split('\n\n').map((paragraph, index) => {
                                             if (paragraph.startsWith('## ')) {
                                                 return (
-                                                    <h2 key={index} className="text-xl font-semibold mt-6 mb-3">
+                                                    <h2 key={index} className="text-xl font-semibold mt-6 mb-3 text-slate-900 dark:text-white">
                                                         {paragraph.replace('## ', '')}
                                                     </h2>
                                                 )
                                             }
                                             if (paragraph.startsWith('- ')) {
                                                 return (
-                                                    <ul key={index} className="list-disc list-inside space-y-1">
+                                                    <ul key={index} className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300">
                                                         {paragraph.split('\n').map((item, i) => (
                                                             <li key={i}>{item.replace('- ', '')}</li>
                                                         ))}
                                                     </ul>
                                                 )
                                             }
-                                            return <p key={index}>{paragraph}</p>
+                                            return <p key={index} className="text-slate-700 dark:text-slate-300">{paragraph}</p>
                                         })
                                     ) : (
-                                        <p className="text-slate-500">No description available for this event.</p>
+                                        <p className="text-slate-500 dark:text-slate-400">No description available for this event.</p>
                                     )}
                                 </div>
                             </CardContent>
@@ -244,13 +244,13 @@ export default async function EventPage({ params }: EventPageProps) {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-2">
-                                        <p className="font-medium text-lg">{event.venue_name}</p>
+                                        <p className="font-medium text-lg text-slate-900 dark:text-white">{event.venue_name}</p>
                                         {event.address && (
-                                            <p className="text-slate-600 dark:text-slate-400">
+                                            <p className="text-slate-600 dark:text-slate-300">
                                                 {event.address}
                                             </p>
                                         )}
-                                        <p className="text-slate-600 dark:text-slate-400">
+                                        <p className="text-slate-600 dark:text-slate-300">
                                             {event.city}, {event.country}
                                         </p>
                                     </div>
@@ -272,7 +272,7 @@ export default async function EventPage({ params }: EventPageProps) {
                                         {isSoldOut ? (
                                             <Badge variant="destructive">Sold Out</Badge>
                                         ) : (
-                                            <span className="text-sm font-normal text-slate-500">
+                                            <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
                                                 From {formatCurrency(lowestPrice)}
                                             </span>
                                         )}
@@ -293,19 +293,19 @@ export default async function EventPage({ params }: EventPageProps) {
                                             >
                                                 <div className="flex items-start justify-between">
                                                     <div>
-                                                        <h4 className="font-semibold">{ticket.name}</h4>
-                                                        <p className="text-sm text-slate-500 mt-1">
+                                                        <h4 className="font-semibold text-slate-900 dark:text-white">{ticket.name}</h4>
+                                                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                                                             {ticket.description}
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-lg">
+                                                        <p className="font-bold text-lg text-slate-900 dark:text-white">
                                                             {ticket.price === 0 ? 'Free' : formatCurrency(ticket.price)}
                                                         </p>
                                                         {soldOut ? (
                                                             <Badge variant="secondary" className="mt-1">Sold out</Badge>
                                                         ) : (
-                                                            <p className="text-xs text-slate-500 mt-1">
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                                                 {available} left
                                                             </p>
                                                         )}
@@ -350,7 +350,7 @@ export default async function EventPage({ params }: EventPageProps) {
                                     {/* Organizer */}
                                     {organizer && (
                                         <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                                            <p className="text-xs text-slate-500 mb-2">Organized by</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Organized by</p>
                                             <div className="flex items-center gap-3">
                                                 {organizer.avatar_url ? (
                                                     <img
@@ -364,7 +364,7 @@ export default async function EventPage({ params }: EventPageProps) {
                                                     </div>
                                                 )}
                                                 <div>
-                                                    <p className="font-medium text-sm flex items-center gap-1">
+                                                    <p className="font-medium text-sm flex items-center gap-1 text-slate-900 dark:text-white">
                                                         {organizer.full_name || 'Event Organizer'}
                                                         {organizer.is_verified && <VerifiedBadge size="sm" />}
                                                     </p>

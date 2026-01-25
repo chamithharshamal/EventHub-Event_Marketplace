@@ -15,7 +15,7 @@ import {
     Shield
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createBrowserClient } from '@supabase/ssr'
+import { getSupabaseClient } from '@/lib/supabase/client'
 
 interface SidebarProps {
     userRole?: 'admin' | 'organizer' | 'staff' | 'attendee'
@@ -27,12 +27,10 @@ export function Sidebar({ userRole = 'organizer' }: SidebarProps) {
     const [isAdmin, setIsAdmin] = useState(false)
 
     const handleSignOut = async () => {
-        const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
+        const supabase = getSupabaseClient()
         await supabase.auth.signOut()
         router.push('/login')
+        router.refresh()
     }
 
     useEffect(() => {

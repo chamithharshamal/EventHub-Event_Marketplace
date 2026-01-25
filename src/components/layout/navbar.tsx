@@ -8,14 +8,17 @@ import {
     X,
     Ticket,
     Search,
-    User,
+    User as UserIcon,
     LogOut,
     LayoutDashboard,
     CalendarDays,
-    Heart
+    Heart,
+    ArrowRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { getSupabaseClient } from '@/lib/supabase/client'
+import { useEffect } from 'react'
 
 interface NavbarProps {
     user?: {
@@ -26,15 +29,74 @@ interface NavbarProps {
     } | null
 }
 
-export function Navbar({ user }: NavbarProps) {
+export function Navbar({ user: initialUser }: NavbarProps) {
     const pathname = usePathname()
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const [user, setUser] = useState<NavbarProps['user']>(initialUser)
+
+    useEffect(() => {
+        // Only fetch if not provided by prop or to sync with client-side state
+        const supabase = getSupabaseClient()
+
+        const getUser = async () => {
+            const { data: { user: sessionUser } } = await supabase.auth.getUser()
+            if (sessionUser) {
+                // Fetch profile to get role
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role, full_name, avatar_url')
+                    .eq('id', sessionUser.id)
+                    .single()
+
+                setUser({
+                    id: sessionUser.id,
+                    email: sessionUser.email!,
+                    full_name: (profile as any)?.full_name || sessionUser.user_metadata?.full_name,
+                    role: (profile as any)?.role || sessionUser.user_metadata?.role || 'attendee',
+                })
+            } else {
+                setUser(null)
+            }
+        }
+
+        if (!initialUser) {
+            getUser()
+        }
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session?.user) {
+                // Fetch profile to get role on auth change
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role, full_name, avatar_url')
+                    .eq('id', session.user.id)
+                    .single()
+
+                setUser({
+                    id: session.user.id,
+                    email: session.user.email!,
+                    full_name: (profile as any)?.full_name || session.user.user_metadata?.full_name,
+                    role: (profile as any)?.role || session.user.user_metadata?.role || 'attendee',
+                })
+            } else {
+                setUser(null)
+            }
+        })
+
+        return () => subscription.unsubscribe()
+    }, [initialUser])
 
     const navLinks = [
         { href: '/events', label: 'Discover Events', icon: CalendarDays },
     ]
 
     const isActive = (href: string) => pathname.startsWith(href)
+
+    const handleLogout = async () => {
+        const supabase = getSupabaseClient()
+        await supabase.auth.signOut()
+        setMobileMenuOpen(false)
+    }
 
     return (
         <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/80">
@@ -96,13 +158,25 @@ export function Navbar({ user }: NavbarProps) {
                                     My Tickets
                                 </Button>
                             </Link>
-                            <Link href="/dashboard">
-                                <Button variant="outline" size="sm">
-                                    <LayoutDashboard className="h-4 w-4" />
-                                    Dashboard
-                                </Button>
-                            </Link>
+                            {['admin', 'organizer', 'staff'].includes(user.role || '') ? (
+                                <Link href="/dashboard">
+                                    <Button variant="outline" size="sm">
+                                        <LayoutDashboard className="h-4 w-4" />
+                                        Dashboard
+                                    </Button>
+                                </Link>
+                            ) : (
+                                <Link href="/become-organizer">
+                                    <Button variant="outline" size="sm" className="border-violet-200 text-violet-600 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-900/20">
+                                        <CalendarDays className="h-4 w-4" />
+                                        Host an Event
+                                    </Button>
+                                </Link>
+                            )}
                             <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
+                                <Button variant="ghost" size="icon" onClick={handleLogout} title="Log out">
+                                    <LogOut className="h-4 w-4 text-slate-500 hover:text-red-600" />
+                                </Button>
                                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-xs font-medium text-white">
                                     {user.full_name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
                                 </div>
@@ -110,8 +184,8 @@ export function Navbar({ user }: NavbarProps) {
                         </>
                     ) : (
                         <>
-                            <Link href="/login" className="hidden sm:block">
-                                <Button variant="secondary" size="sm">
+                            <Link href="/login">
+                                <Button variant="secondary" size="sm" className="hidden xs:inline-flex">
                                     Sign In
                                 </Button>
                             </Link>
@@ -153,7 +227,7 @@ export function Navbar({ user }: NavbarProps) {
                                 {link.label}
                             </Link>
                         ))}
-                        {user && (
+                        {user ? (
                             <>
                                 <Link
                                     href="/wishlist"
@@ -171,13 +245,50 @@ export function Navbar({ user }: NavbarProps) {
                                     <Ticket className="h-4 w-4" />
                                     My Tickets
                                 </Link>
+                                {['admin', 'organizer', 'staff'].includes(user.role || '') ? (
+                                    <Link
+                                        href="/dashboard"
+                                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                    >
+                                        <LayoutDashboard className="h-4 w-4" />
+                                        Dashboard
+                                    </Link>
+                                ) : (
+                                    <Link
+                                        href="/become-organizer"
+                                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-800"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                    >
+                                        <CalendarDays className="h-4 w-4" />
+                                        Host an Event
+                                    </Link>
+                                )}
+                                <button
+                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                    onClick={handleLogout}
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    Log Out
+                                </button>
+                            </>
+                        ) : (
+                            <>
                                 <Link
-                                    href="/dashboard"
+                                    href="/login"
                                     className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
                                     onClick={() => setMobileMenuOpen(false)}
                                 >
-                                    <LayoutDashboard className="h-4 w-4" />
-                                    Dashboard
+                                    <UserIcon className="h-4 w-4" />
+                                    Sign In
+                                </Link>
+                                <Link
+                                    href="/register"
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-800"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    <ArrowRight className="h-4 w-4" />
+                                    Get Started
                                 </Link>
                             </>
                         )}

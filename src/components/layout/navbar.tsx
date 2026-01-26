@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import {
     Menu,
@@ -12,79 +12,27 @@ import {
     LogOut,
     LayoutDashboard,
     CalendarDays,
-    Heart,
-    ArrowRight
+    Heart
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getSupabaseClient } from '@/lib/supabase/client'
-import { useEffect } from 'react'
+import { useAuth } from '@/context/auth-context'
 
-interface NavbarProps {
-    user?: {
-        id: string
-        email: string
-        full_name?: string | null
-        role?: string
-    } | null
-}
-
-export function Navbar({ user: initialUser }: NavbarProps) {
+export function Navbar() {
     const pathname = usePathname()
+    const router = useRouter()
+    const { user, signOut } = useAuth()
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-    const [user, setUser] = useState<NavbarProps['user']>(initialUser)
+    const [dropdownOpen, setDropdownOpen] = useState(false)
 
-    useEffect(() => {
-        // Only fetch if not provided by prop or to sync with client-side state
-        const supabase = getSupabaseClient()
+    const handleLogout = async () => {
+        await signOut()
+        setDropdownOpen(false)
+        setMobileMenuOpen(false)
+        router.push('/')
+    }
 
-        const getUser = async () => {
-            const { data: { user: sessionUser } } = await supabase.auth.getUser()
-            if (sessionUser) {
-                // Fetch profile to get role
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role, full_name, avatar_url')
-                    .eq('id', sessionUser.id)
-                    .single()
-
-                setUser({
-                    id: sessionUser.id,
-                    email: sessionUser.email!,
-                    full_name: (profile as any)?.full_name || sessionUser.user_metadata?.full_name,
-                    role: (profile as any)?.role || sessionUser.user_metadata?.role || 'attendee',
-                })
-            } else {
-                setUser(null)
-            }
-        }
-
-        if (!initialUser) {
-            getUser()
-        }
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (session?.user) {
-                // Fetch profile to get role on auth change
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role, full_name, avatar_url')
-                    .eq('id', session.user.id)
-                    .single()
-
-                setUser({
-                    id: session.user.id,
-                    email: session.user.email!,
-                    full_name: (profile as any)?.full_name || session.user.user_metadata?.full_name,
-                    role: (profile as any)?.role || session.user.user_metadata?.role || 'attendee',
-                })
-            } else {
-                setUser(null)
-            }
-        })
-
-        return () => subscription.unsubscribe()
-    }, [initialUser])
+    const isOrganizerOrAdmin = user?.role === 'admin' || user?.role === 'organizer'
 
     const navLinks = [
         { href: '/events', label: 'Discover Events', icon: CalendarDays },
@@ -92,14 +40,8 @@ export function Navbar({ user: initialUser }: NavbarProps) {
 
     const isActive = (href: string) => pathname.startsWith(href)
 
-    const handleLogout = async () => {
-        const supabase = getSupabaseClient()
-        await supabase.auth.signOut()
-        setMobileMenuOpen(false)
-    }
-
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/80">
+        <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-sm dark:border-slate-800/80 dark:bg-slate-950/95">
             <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2">
@@ -146,46 +88,117 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                 <div className="flex items-center gap-3">
                     {user ? (
                         <>
-                            <Link href="/wishlist" className="hidden sm:block">
-                                <Button variant="ghost" size="sm">
-                                    <Heart className="h-4 w-4" />
-                                    Wishlist
-                                </Button>
-                            </Link>
+                            {/* My Tickets */}
                             <Link href="/my-tickets" className="hidden sm:block">
                                 <Button variant="ghost" size="sm">
-                                    <Ticket className="h-4 w-4" />
+                                    <Ticket className="h-4 w-4 mr-1" />
                                     My Tickets
                                 </Button>
                             </Link>
-                            {['admin', 'organizer', 'staff'].includes(user.role || '') ? (
-                                <Link href="/dashboard">
-                                    <Button variant="outline" size="sm">
-                                        <LayoutDashboard className="h-4 w-4" />
-                                        Dashboard
-                                    </Button>
-                                </Link>
-                            ) : (
-                                <Link href="/become-organizer">
-                                    <Button variant="outline" size="sm" className="border-violet-200 text-violet-600 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-900/20">
-                                        <CalendarDays className="h-4 w-4" />
+
+                            {/* Host an Event - only for regular users */}
+                            {!isOrganizerOrAdmin && (
+                                <Link href="/become-organizer" className="hidden sm:block">
+                                    <Button variant="outline" size="sm" className="border-violet-300 text-violet-600 hover:bg-violet-50">
+                                        <CalendarDays className="h-4 w-4 mr-1" />
                                         Host an Event
                                     </Button>
                                 </Link>
                             )}
-                            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700">
-                                <Button variant="ghost" size="icon" onClick={handleLogout} title="Log out">
-                                    <LogOut className="h-4 w-4 text-slate-500 hover:text-red-600" />
-                                </Button>
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-xs font-medium text-white">
+
+                            {/* Dashboard - only for organizer/admin */}
+                            {isOrganizerOrAdmin && (
+                                <Link href="/dashboard" className="hidden sm:block">
+                                    <Button variant="outline" size="sm">
+                                        <LayoutDashboard className="h-4 w-4 mr-1" />
+                                        Dashboard
+                                    </Button>
+                                </Link>
+                            )}
+
+                            {/* Profile Avatar with Dropdown */}
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                                    className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-sm font-semibold text-white cursor-pointer hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+                                >
                                     {user.full_name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-                                </div>
+                                </button>
+
+                                {/* Dropdown Menu */}
+                                {dropdownOpen && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setDropdownOpen(false)}
+                                        />
+                                        <div className="absolute right-0 mt-2 w-56 rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900 z-50">
+                                            <div className="p-3 border-b border-slate-100 dark:border-slate-800">
+                                                <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                                    {user.full_name || 'User'}
+                                                </p>
+                                                <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                                                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                                    {user.role}
+                                                </span>
+                                            </div>
+                                            <div className="py-1">
+                                                {isOrganizerOrAdmin && (
+                                                    <Link
+                                                        href="/dashboard"
+                                                        className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                                                        onClick={() => setDropdownOpen(false)}
+                                                    >
+                                                        <LayoutDashboard className="h-4 w-4" />
+                                                        Dashboard
+                                                    </Link>
+                                                )}
+                                                <Link
+                                                    href="/my-tickets"
+                                                    className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                                                    onClick={() => setDropdownOpen(false)}
+                                                >
+                                                    <Ticket className="h-4 w-4" />
+                                                    My Tickets
+                                                </Link>
+                                                <Link
+                                                    href="/wishlist"
+                                                    className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                                                    onClick={() => setDropdownOpen(false)}
+                                                >
+                                                    <Heart className="h-4 w-4" />
+                                                    Wishlist
+                                                </Link>
+                                                {!isOrganizerOrAdmin && (
+                                                    <Link
+                                                        href="/become-organizer"
+                                                        className="flex items-center gap-2 px-4 py-2 text-sm text-violet-600 hover:bg-violet-50 dark:text-violet-400"
+                                                        onClick={() => setDropdownOpen(false)}
+                                                    >
+                                                        <CalendarDays className="h-4 w-4" />
+                                                        Host an Event
+                                                    </Link>
+                                                )}
+                                            </div>
+                                            <div className="border-t border-slate-100 dark:border-slate-800 py-1">
+                                                <button
+                                                    onClick={handleLogout}
+                                                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400"
+                                                >
+                                                    <LogOut className="h-4 w-4" />
+                                                    Log Out
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </>
                     ) : (
                         <>
                             <Link href="/login">
-                                <Button variant="secondary" size="sm" className="hidden xs:inline-flex">
+                                <Button variant="secondary" size="sm">
                                     Sign In
                                 </Button>
                             </Link>
@@ -216,10 +229,10 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                                 key={link.href}
                                 href={link.href}
                                 className={cn(
-                                    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                                    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium',
                                     isActive(link.href)
-                                        ? 'bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400'
-                                        : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-violet-50 text-violet-600'
+                                        : 'text-slate-600 hover:bg-slate-50'
                                 )}
                                 onClick={() => setMobileMenuOpen(false)}
                             >
@@ -230,34 +243,27 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                         {user ? (
                             <>
                                 <Link
-                                    href="/wishlist"
-                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                >
-                                    <Heart className="h-4 w-4" />
-                                    Wishlist
-                                </Link>
-                                <Link
                                     href="/my-tickets"
-                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                                     onClick={() => setMobileMenuOpen(false)}
                                 >
                                     <Ticket className="h-4 w-4" />
                                     My Tickets
                                 </Link>
-                                {['admin', 'organizer', 'staff'].includes(user.role || '') ? (
+                                {isOrganizerOrAdmin && (
                                     <Link
                                         href="/dashboard"
-                                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                                         onClick={() => setMobileMenuOpen(false)}
                                     >
                                         <LayoutDashboard className="h-4 w-4" />
                                         Dashboard
                                     </Link>
-                                ) : (
+                                )}
+                                {!isOrganizerOrAdmin && (
                                     <Link
                                         href="/become-organizer"
-                                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-800"
+                                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50"
                                         onClick={() => setMobileMenuOpen(false)}
                                     >
                                         <CalendarDays className="h-4 w-4" />
@@ -265,8 +271,8 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                                     </Link>
                                 )}
                                 <button
-                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                                     onClick={handleLogout}
+                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                                 >
                                     <LogOut className="h-4 w-4" />
                                     Log Out
@@ -276,7 +282,7 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                             <>
                                 <Link
                                     href="/login"
-                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                                     onClick={() => setMobileMenuOpen(false)}
                                 >
                                     <UserIcon className="h-4 w-4" />
@@ -284,10 +290,9 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                                 </Link>
                                 <Link
                                     href="/register"
-                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-800"
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-violet-600 hover:bg-violet-50"
                                     onClick={() => setMobileMenuOpen(false)}
                                 >
-                                    <ArrowRight className="h-4 w-4" />
                                     Get Started
                                 </Link>
                             </>

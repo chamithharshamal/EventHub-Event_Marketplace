@@ -14,46 +14,37 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { getSupabaseClient } from '@/lib/supabase/client'
-import { type User } from '@supabase/supabase-js'
-import { type Profile } from '@/types/database'
+import { useAuth } from '@/context/auth-context'
+import { switchToOrganizer } from './actions'
 
 
 export default function BecomeOrganizerPage() {
     const router = useRouter()
+    const { user, loading: authLoading, refreshUser } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
-    const [user, setUser] = useState<User | null>(null)
-    const [pageLoading, setPageLoading] = useState(true)
 
     useEffect(() => {
-        const checkUser = async () => {
-            const supabase = getSupabaseClient()
-            const { data: { user } } = await supabase.auth.getUser()
+        console.log('[BecomeOrganizer] Auth state:', { user, authLoading })
 
-            if (!user) {
-                router.push('/login?redirectTo=/become-organizer')
-                return
-            }
+        // Wait for auth to finish loading
+        if (authLoading) return
 
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single()
-
-            const typedProfile = profile as Profile | null
-
-            if (typedProfile?.role === 'organizer' || typedProfile?.role === 'admin') {
-                router.push('/dashboard')
-                return
-            }
-
-            setUser(user)
-            setPageLoading(false)
+        // If not logged in, redirect to login
+        if (!user) {
+            console.log('[BecomeOrganizer] No user, redirecting to login...')
+            router.push('/login?redirectTo=/become-organizer')
+            return
         }
 
-        checkUser()
-    }, [router])
+        // If already organizer/admin, redirect to dashboard
+        if (user.role === 'organizer' || user.role === 'admin') {
+            console.log('[BecomeOrganizer] User is organizer/admin, redirecting to dashboard...')
+            router.push('/dashboard')
+            return
+        }
+
+        console.log('[BecomeOrganizer] User is regular user, showing page')
+    }, [user, authLoading, router])
 
     const handleSwitchRole = async () => {
         if (!user) {
@@ -62,37 +53,39 @@ export default function BecomeOrganizerPage() {
         }
 
         setIsLoading(true)
+        console.log('[BecomeOrganizer] Starting role switch...')
+
         try {
-            const supabase = getSupabaseClient()
+            // Use server action instead of direct Supabase calls
+            const result = await switchToOrganizer(user.id, user.email)
+            console.log('[BecomeOrganizer] Server action result:', result)
 
-            // Use upsert to handle case where profile doesn't exist
-            const { error } = await supabase
-                .from('profiles')
-                .upsert({
-                    id: user.id,
-                    email: user.email!, // Email is required for profiles
-                    role: 'organizer',
-                    updated_at: new Date().toISOString()
-                } as any) // Use as any for the upsert object if needed to satisfy Supabase's strict Insert type vs partial updates
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to update role')
+            }
 
-            if (error) throw error
-
-            // Update auth metadata too just in case it's used elsewhere
-            await supabase.auth.updateUser({
-                data: { role: 'organizer' }
-            })
-
-            router.push('/dashboard')
-            router.refresh()
+            console.log('[BecomeOrganizer] Role switched, redirecting to dashboard...')
+            // Skip refreshUser - it hangs. Just redirect; the new page will load fresh auth state
+            window.location.href = '/dashboard'
         } catch (error: any) {
-            console.error('Error switching role:', error)
+            console.error('[BecomeOrganizer] Error switching role:', error)
             alert('Failed to update role. Please try again.')
         } finally {
             setIsLoading(false)
         }
     }
 
-    if (pageLoading) {
+    // Show loading only when we're truly waiting (auth loading AND no user yet)
+    if (authLoading && !user) {
+        return (
+            <div className="flex min-h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+            </div>
+        )
+    }
+
+    // If auth finished loading but no user, the useEffect will redirect, show spinner meanwhile
+    if (!user) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-violet-600" />

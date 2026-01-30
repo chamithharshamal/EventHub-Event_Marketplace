@@ -1,59 +1,70 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { Ticket, Calendar, MapPin, QrCode, ChevronRight } from 'lucide-react'
 import { Navbar } from '@/components/layout/navbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
 
-// Mock tickets data - will be replaced with real data fetch
-const mockTickets = [
-    {
-        id: 'tkt_001',
-        status: 'valid',
-        ticket_type: { name: 'General Admission', price: 299 },
-        event: {
-            id: 'evt_001',
-            title: 'Tech Innovation Summit 2026',
-            slug: 'tech-innovation-summit-2026',
-            start_date: '2026-02-15T09:00:00Z',
-            venue_name: 'Moscone Center',
-            city: 'San Francisco',
-            banner_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&auto=format&fit=crop',
-        },
-        qr_code_data: 'EVT_001_TKT_001',
-    },
-    {
-        id: 'tkt_002',
-        status: 'valid',
-        ticket_type: { name: 'VIP Pass', price: 150 },
-        event: {
-            id: 'evt_002',
-            title: 'Electronic Music Festival',
-            slug: 'electronic-music-festival',
-            start_date: '2026-03-20T18:00:00Z',
-            venue_name: 'Miami Beach Convention',
-            city: 'Miami',
-            banner_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&auto=format&fit=crop',
-        },
-        qr_code_data: 'EVT_002_TKT_002',
-    },
-    {
-        id: 'tkt_003',
-        status: 'used',
-        ticket_type: { name: 'Workshop Ticket', price: 0 },
-        event: {
-            id: 'evt_003',
-            title: 'AI & Machine Learning Workshop',
-            slug: 'ai-ml-workshop',
-            start_date: '2026-01-10T10:00:00Z',
-            venue_name: 'Tech Hub NYC',
-            city: 'New York',
-            banner_url: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&auto=format&fit=crop',
-        },
-        qr_code_data: 'EVT_003_TKT_003',
-    },
-]
+interface TicketWithDetails {
+    id: string
+    status: string
+    qr_code_data: string | null
+    ticket_types: {
+        name: string
+        price: number
+    } | null
+    events: {
+        id: string
+        title: string
+        slug: string
+        start_date: string
+        venue_name: string | null
+        city: string | null
+        banner_url: string | null
+    } | null
+}
+
+async function getMyTickets(): Promise<TicketWithDetails[]> {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+        return []
+    }
+
+    const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select(`
+            id,
+            status,
+            qr_code_data,
+            ticket_types (
+                name,
+                price
+            ),
+            events (
+                id,
+                title,
+                slug,
+                start_date,
+                venue_name,
+                city,
+                banner_url
+            )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+    if (error) {
+        console.error('Error fetching tickets:', error)
+        return []
+    }
+
+    return (tickets || []) as unknown as TicketWithDetails[]
+}
 
 function getStatusBadge(status: string) {
     switch (status) {
@@ -71,15 +82,20 @@ function getStatusBadge(status: string) {
 }
 
 export default async function MyTicketsPage() {
-    // TODO: Fetch real tickets data
-    // const tickets = await getMyTickets()
-    const tickets = mockTickets
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        redirect('/login')
+    }
+
+    const tickets = await getMyTickets()
 
     const upcomingTickets = tickets.filter(t =>
-        t.status === 'valid' && new Date(t.event.start_date) > new Date()
+        t.status === 'valid' && t.events && new Date(t.events.start_date) > new Date()
     )
     const pastTickets = tickets.filter(t =>
-        t.status !== 'valid' || new Date(t.event.start_date) <= new Date()
+        t.status !== 'valid' || !t.events || new Date(t.events.start_date) <= new Date()
     )
 
     return (
@@ -143,17 +159,28 @@ export default async function MyTicketsPage() {
     )
 }
 
-function TicketCard({ ticket }: { ticket: typeof mockTickets[0] }) {
+function TicketCard({ ticket }: { ticket: TicketWithDetails }) {
+    const event = ticket.events
+    const ticketType = ticket.ticket_types
+
+    if (!event) return null
+
     return (
         <Card className="overflow-hidden hover:shadow-md transition-shadow">
             <div className="flex flex-col sm:flex-row">
                 {/* Event Image */}
                 <div className="relative w-full sm:w-40 h-32 sm:h-auto shrink-0">
-                    <img
-                        src={ticket.event.banner_url}
-                        alt={ticket.event.title}
-                        className="h-full w-full object-cover"
-                    />
+                    {event.banner_url ? (
+                        <img
+                            src={event.banner_url}
+                            alt={event.title}
+                            className="h-full w-full object-cover"
+                        />
+                    ) : (
+                        <div className="h-full w-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+                            <Ticket className="h-8 w-8 text-slate-400" />
+                        </div>
+                    )}
                 </div>
 
                 {/* Ticket Info */}
@@ -163,21 +190,23 @@ function TicketCard({ ticket }: { ticket: typeof mockTickets[0] }) {
                             <div className="flex items-center gap-2 mb-2">
                                 {getStatusBadge(ticket.status)}
                                 <span className="text-sm text-slate-500">
-                                    {ticket.ticket_type.name}
+                                    {ticketType?.name || 'Ticket'}
                                 </span>
                             </div>
                             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                                {ticket.event.title}
+                                {event.title}
                             </h3>
                             <div className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-400">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="h-4 w-4" />
-                                    {formatDate(ticket.event.start_date)}
+                                    {formatDate(event.start_date)}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="h-4 w-4" />
-                                    {ticket.event.venue_name}, {ticket.event.city}
-                                </div>
+                                {(event.venue_name || event.city) && (
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="h-4 w-4" />
+                                        {[event.venue_name, event.city].filter(Boolean).join(', ')}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

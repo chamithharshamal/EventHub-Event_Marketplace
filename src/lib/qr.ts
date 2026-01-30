@@ -102,7 +102,7 @@ export function isExpired(payload: QRPayload): boolean {
 
 export interface ValidationResult {
     valid: boolean
-    status: 'SUCCESS' | 'INVALID_SIGNATURE' | 'TICKET_EXPIRED' | 'WRONG_EVENT' | 'PARSE_ERROR' | 'TICKET_USED' | 'TICKET_CANCELLED' | 'TICKET_NOT_FOUND' | 'ALREADY_USED'
+    status: 'SUCCESS' | 'INVALID_SIGNATURE' | 'TICKET_EXPIRED' | 'WRONG_EVENT' | 'PARSE_ERROR' | 'TICKET_USED' | 'TICKET_CANCELLED' | 'TICKET_NOT_FOUND' | 'ALREADY_USED' | 'UNAUTHORIZED'
     attendee?: {
         name: string | null
         email: string | null

@@ -37,17 +37,16 @@ export async function validateTicket(
     }
 
     // Verify user has access to this event (is organizer or staff)
-    // For now we assume if they can hit this action they are on the check-in page which checks permissions
-    // But strict backend check:
     const { data: eventRole } = await supabase
         .from('events')
         .select('organizer_id')
         .eq('id', eventId)
         .single()
 
-    // TODO: Add robust role check here (if we add staff table later)
+    // Strict permission check: only event organizer can validate tickets
+    // TODO: Extend to check for staff roles when staff table is implemented
     if ((eventRole as { organizer_id: string } | null)?.organizer_id !== user.id) {
-        // return { valid: false, status: 'UNAUTHORIZED' }
+        return { valid: false, status: 'UNAUTHORIZED' }
     }
 
     // Fetch ticket

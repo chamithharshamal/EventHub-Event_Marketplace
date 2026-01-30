@@ -1,34 +1,75 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { CheckCircle, Ticket, Calendar, MapPin, Download, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
 
-// Mock order data - will be replaced with real data fetch
-const mockOrder = {
-    id: 'ord_123456',
-    status: 'completed',
-    total: 299,
-    service_fee: 14.95,
-    subtotal: 284.05,
-    created_at: '2026-01-17T10:00:00Z',
-    event: {
-        title: 'Tech Innovation Summit 2026',
-        slug: 'tech-innovation-summit-2026',
-        start_date: '2026-02-15T09:00:00Z',
-        venue_name: 'Moscone Center',
-        city: 'San Francisco',
-        country: 'USA',
-        banner_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop',
-    },
-    tickets: [
-        {
-            id: 'tkt_001',
-            ticket_type: { name: 'General Admission' },
-            qr_code_data: 'EVT_001_TKT_001',
-        },
-    ],
+interface OrderWithDetails {
+    id: string
+    status: string
+    total: number
+    service_fee: number
+    subtotal: number
+    created_at: string
+    events: {
+        title: string
+        slug: string
+        start_date: string
+        venue_name: string | null
+        city: string | null
+        country: string | null
+        banner_url: string | null
+    } | null
+    tickets: Array<{
+        id: string
+        ticket_types: {
+            name: string
+        } | null
+        qr_code_data: string | null
+    }>
+}
+
+async function getOrder(orderId: string, userId: string): Promise<OrderWithDetails | null> {
+    const supabase = await createClient()
+
+    const { data: order, error } = await supabase
+        .from('orders')
+        .select(`
+            id,
+            status,
+            total,
+            service_fee,
+            subtotal,
+            created_at,
+            events (
+                title,
+                slug,
+                start_date,
+                venue_name,
+                city,
+                country,
+                banner_url
+            ),
+            tickets (
+                id,
+                qr_code_data,
+                ticket_types (
+                    name
+                )
+            )
+        `)
+        .eq('id', orderId)
+        .eq('user_id', userId) // Ensure user owns this order
+        .single()
+
+    if (error || !order) {
+        console.error('Error fetching order:', error)
+        return null
+    }
+
+    return order as unknown as OrderWithDetails
 }
 
 interface OrderConfirmationPageProps {
@@ -37,14 +78,20 @@ interface OrderConfirmationPageProps {
 
 export default async function OrderConfirmationPage({ params }: OrderConfirmationPageProps) {
     const { orderId } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // TODO: Fetch real order data
-    // const order = await getOrder(orderId)
-    const order = { ...mockOrder, id: orderId }
+    if (!user) {
+        redirect('/login')
+    }
+
+    const order = await getOrder(orderId, user.id)
 
     if (!order) {
         notFound()
     }
+
+    const event = order.events
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white dark:from-slate-950 dark:to-slate-900 py-12">
@@ -68,31 +115,39 @@ export default async function OrderConfirmationPage({ params }: OrderConfirmatio
                 </div>
 
                 {/* Event Card */}
-                <Card className="mb-6 overflow-hidden">
-                    <div className="relative h-32">
-                        <img
-                            src={order.event.banner_url}
-                            alt={order.event.title}
-                            className="h-full w-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    </div>
-                    <CardContent className="p-6">
-                        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                            {order.event.title}
-                        </h2>
-                        <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                            <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
-                                {formatDate(order.event.start_date)}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4" />
-                                {order.event.venue_name}, {order.event.city}
-                            </div>
+                {event && (
+                    <Card className="mb-6 overflow-hidden">
+                        <div className="relative h-32">
+                            {event.banner_url ? (
+                                <img
+                                    src={event.banner_url}
+                                    alt={event.title}
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <div className="h-full w-full bg-slate-200 dark:bg-slate-800" />
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                         </div>
-                    </CardContent>
-                </Card>
+                        <CardContent className="p-6">
+                            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                                {event.title}
+                            </h2>
+                            <div className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    {formatDate(event.start_date)}
+                                </div>
+                                {(event.venue_name || event.city) && (
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="h-4 w-4" />
+                                        {[event.venue_name, event.city].filter(Boolean).join(', ')}
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Tickets */}
                 <Card className="mb-6">
@@ -113,7 +168,7 @@ export default async function OrderConfirmationPage({ params }: OrderConfirmatio
                                         Ticket #{index + 1}
                                     </p>
                                     <p className="text-sm text-slate-500">
-                                        {ticket.ticket_type.name}
+                                        {ticket.ticket_types?.name || 'Ticket'}
                                     </p>
                                 </div>
                                 <div className="h-16 w-16 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center">

@@ -1,55 +1,100 @@
-'use client'
-
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { notFound, redirect } from 'next/navigation'
 import {
     ArrowLeft,
     Calendar,
     MapPin,
-    Clock,
     Download,
     Share2,
     CheckCircle,
     XCircle,
-    AlertCircle
+    AlertCircle,
+    Ticket
 } from 'lucide-react'
 import { Navbar } from '@/components/layout/navbar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatDateTime } from '@/lib/utils'
-import { generateQRCodeImage } from '@/lib/qr'
+import { createClient } from '@/lib/supabase/server'
+import { TicketQRCode } from './ticket-qr-code'
 
-// Mock ticket data
-const mockTicket = {
-    id: 'tkt_001',
-    status: 'valid',
-    qr_code_data: 'EVT_001_TKT_001_SIGNATURE',
-    attendee_name: null,
-    attendee_email: null,
-    checked_in_at: null,
-    ticket_type: {
-        name: 'General Admission',
-        description: 'Full access to all conference sessions',
-        price: 299,
-        perks: ['Full conference access', 'Lunch included', 'Swag bag'],
-    },
-    event: {
-        id: 'evt_001',
-        title: 'Tech Innovation Summit 2026',
-        slug: 'tech-innovation-summit-2026',
-        start_date: '2026-02-15T09:00:00Z',
-        end_date: '2026-02-15T18:00:00Z',
-        venue_name: 'Moscone Center',
-        address: '747 Howard St',
-        city: 'San Francisco',
-        country: 'USA',
-        banner_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop',
-    },
-    order: {
-        id: 'ord_123456',
-        created_at: '2026-01-17T10:00:00Z',
-    },
+interface TicketWithDetails {
+    id: string
+    status: string
+    qr_code_data: string | null
+    attendee_name: string | null
+    attendee_email: string | null
+    checked_in_at: string | null
+    ticket_types: {
+        name: string
+        description: string | null
+        price: number
+        perks: string[] | null
+    } | null
+    events: {
+        id: string
+        title: string
+        slug: string
+        start_date: string
+        end_date: string
+        venue_name: string | null
+        address: string | null
+        city: string | null
+        country: string | null
+        banner_url: string | null
+    } | null
+    orders: {
+        id: string
+        created_at: string
+    } | null
+}
+
+async function getTicketById(ticketId: string, userId: string): Promise<TicketWithDetails | null> {
+    const supabase = await createClient()
+
+    const { data: ticket, error } = await supabase
+        .from('tickets')
+        .select(`
+            id,
+            status,
+            qr_code_data,
+            attendee_name,
+            attendee_email,
+            checked_in_at,
+            ticket_types (
+                name,
+                description,
+                price,
+                perks
+            ),
+            events (
+                id,
+                title,
+                slug,
+                start_date,
+                end_date,
+                venue_name,
+                address,
+                city,
+                country,
+                banner_url
+            ),
+            orders (
+                id,
+                created_at
+            )
+        `)
+        .eq('id', ticketId)
+        .eq('user_id', userId)
+        .single()
+
+    if (error || !ticket) {
+        console.error('Error fetching ticket:', error)
+        return null
+    }
+
+    return ticket as unknown as TicketWithDetails
 }
 
 function getStatusInfo(status: string) {
@@ -85,24 +130,24 @@ interface TicketDetailPageProps {
     params: Promise<{ ticketId: string }>
 }
 
-export default function TicketDetailPage({ params }: TicketDetailPageProps) {
-    const [ticketId, setTicketId] = useState<string>('')
-    const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
+export default async function TicketDetailPage({ params }: TicketDetailPageProps) {
+    const { ticketId } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    useEffect(() => {
-        params.then(({ ticketId }) => {
-            setTicketId(ticketId)
-        })
-    }, [params])
+    if (!user) {
+        redirect('/login')
+    }
 
-    useEffect(() => {
-        // Generate QR code image
-        if (mockTicket.qr_code_data) {
-            generateQRCodeImage(mockTicket.qr_code_data).then(setQrCodeUrl)
-        }
-    }, [])
+    const ticket = await getTicketById(ticketId, user.id)
 
-    const ticket = { ...mockTicket, id: ticketId }
+    if (!ticket) {
+        notFound()
+    }
+
+    const event = ticket.events
+    const ticketType = ticket.ticket_types
+    const order = ticket.orders
     const statusInfo = getStatusInfo(ticket.status)
 
     return (
@@ -120,15 +165,21 @@ export default function TicketDetailPage({ params }: TicketDetailPageProps) {
                 <Card className="overflow-hidden">
                     {/* Event Banner */}
                     <div className="relative h-40">
-                        <img
-                            src={ticket.event.banner_url}
-                            alt={ticket.event.title}
-                            className="h-full w-full object-cover"
-                        />
+                        {event?.banner_url ? (
+                            <img
+                                src={event.banner_url}
+                                alt={event.title}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <div className="h-full w-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                                <Ticket className="h-12 w-12 text-white/50" />
+                            </div>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                         <div className="absolute bottom-4 left-4 right-4">
                             <h1 className="text-xl font-bold text-white">
-                                {ticket.event.title}
+                                {event?.title || 'Event'}
                             </h1>
                         </div>
                     </div>
@@ -148,14 +199,12 @@ export default function TicketDetailPage({ params }: TicketDetailPageProps) {
                         {/* QR Code */}
                         <div className="flex justify-center mb-6">
                             <div className="p-4 bg-white rounded-xl shadow-sm border">
-                                {qrCodeUrl ? (
-                                    <img
-                                        src={qrCodeUrl}
-                                        alt="Ticket QR Code"
-                                        className="w-56 h-56"
-                                    />
+                                {ticket.qr_code_data ? (
+                                    <TicketQRCode qrCodeData={ticket.qr_code_data} />
                                 ) : (
-                                    <div className="w-56 h-56 bg-slate-100 animate-pulse rounded" />
+                                    <div className="w-56 h-56 bg-slate-100 flex items-center justify-center rounded">
+                                        <span className="text-slate-400 text-sm">No QR Code</span>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -165,52 +214,62 @@ export default function TicketDetailPage({ params }: TicketDetailPageProps) {
                         </p>
 
                         {/* Ticket Type */}
-                        <div className="border-t border-dashed border-slate-200 dark:border-slate-700 pt-6 mb-6">
-                            <h3 className="font-semibold text-slate-900 dark:text-white">
-                                {ticket.ticket_type.name}
-                            </h3>
-                            <p className="text-sm text-slate-500 mt-1">
-                                {ticket.ticket_type.description}
-                            </p>
+                        {ticketType && (
+                            <div className="border-t border-dashed border-slate-200 dark:border-slate-700 pt-6 mb-6">
+                                <h3 className="font-semibold text-slate-900 dark:text-white">
+                                    {ticketType.name}
+                                </h3>
+                                {ticketType.description && (
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        {ticketType.description}
+                                    </p>
+                                )}
 
-                            {ticket.ticket_type.perks && ticket.ticket_type.perks.length > 0 && (
-                                <ul className="mt-4 space-y-2">
-                                    {(ticket.ticket_type.perks as string[]).map((perk, i) => (
-                                        <li key={i} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                                            <CheckCircle className="h-4 w-4 text-emerald-500" />
-                                            {perk}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
+                                {ticketType.perks && ticketType.perks.length > 0 && (
+                                    <ul className="mt-4 space-y-2">
+                                        {ticketType.perks.map((perk, i) => (
+                                            <li key={i} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                                                {perk}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
 
                         {/* Event Details */}
-                        <div className="space-y-3 text-sm">
-                            <div className="flex items-start gap-3">
-                                <Calendar className="h-5 w-5 text-slate-400 mt-0.5" />
-                                <div>
-                                    <p className="font-medium text-slate-900 dark:text-white">
-                                        {formatDate(ticket.event.start_date)}
-                                    </p>
-                                    <p className="text-slate-500">
-                                        {formatDateTime(ticket.event.start_date).split(',').pop()} - {formatDateTime(ticket.event.end_date).split(',').pop()}
-                                    </p>
+                        {event && (
+                            <div className="space-y-3 text-sm">
+                                <div className="flex items-start gap-3">
+                                    <Calendar className="h-5 w-5 text-slate-400 mt-0.5" />
+                                    <div>
+                                        <p className="font-medium text-slate-900 dark:text-white">
+                                            {formatDate(event.start_date)}
+                                        </p>
+                                        <p className="text-slate-500">
+                                            {formatDateTime(event.start_date).split(',').pop()} - {formatDateTime(event.end_date).split(',').pop()}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="flex items-start gap-3">
-                                <MapPin className="h-5 w-5 text-slate-400 mt-0.5" />
-                                <div>
-                                    <p className="font-medium text-slate-900 dark:text-white">
-                                        {ticket.event.venue_name}
-                                    </p>
-                                    <p className="text-slate-500">
-                                        {ticket.event.address}, {ticket.event.city}
-                                    </p>
-                                </div>
+                                {(event.venue_name || event.city) && (
+                                    <div className="flex items-start gap-3">
+                                        <MapPin className="h-5 w-5 text-slate-400 mt-0.5" />
+                                        <div>
+                                            {event.venue_name && (
+                                                <p className="font-medium text-slate-900 dark:text-white">
+                                                    {event.venue_name}
+                                                </p>
+                                            )}
+                                            <p className="text-slate-500">
+                                                {[event.address, event.city].filter(Boolean).join(', ')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        )}
 
                         {/* Actions */}
                         <div className="flex gap-3 mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
@@ -226,7 +285,7 @@ export default function TicketDetailPage({ params }: TicketDetailPageProps) {
 
                         {/* Order Info */}
                         <p className="text-center text-xs text-slate-400 mt-6">
-                            Order #{ticket.order.id} • Ticket #{ticket.id}
+                            Order #{order?.id?.slice(0, 8) || 'N/A'} • Ticket #{ticket.id.slice(0, 8)}
                         </p>
                     </CardContent>
                 </Card>

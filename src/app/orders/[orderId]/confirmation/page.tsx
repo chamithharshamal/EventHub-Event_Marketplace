@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
+import { DownloadOrderButton } from './download-order-button'
 
 interface OrderWithDetails {
     id: string
@@ -218,10 +219,21 @@ export default async function OrderConfirmationPage({ params }: OrderConfirmatio
                             View My Tickets
                         </Button>
                     </Link>
-                    <Button variant="outline" className="flex-1">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download PDF
-                    </Button>
+                    <DownloadOrderButton
+                        orderId={order.id}
+                        eventTitle={event?.title || 'Event'}
+                        eventDate={event ? formatDate(event.start_date) : ''}
+                        eventLocation={[event?.venue_name, event?.city].filter(Boolean).join(', ')}
+                        tickets={order.tickets.map(t => ({
+                            id: t.id,
+                            ticketType: t.ticket_types?.name || 'Ticket',
+                            qrCodeData: t.qr_code_data
+                        }))}
+                        subtotal={order.subtotal}
+                        serviceFee={order.service_fee}
+                        total={order.total}
+                        orderDate={formatDate(order.created_at)}
+                    />
                 </div>
 
                 <p className="text-center text-sm text-slate-500 mt-6">

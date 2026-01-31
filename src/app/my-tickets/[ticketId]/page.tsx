@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { TicketQRCode } from './ticket-qr-code'
+import { DownloadTicketButton } from './download-ticket-button'
 
 interface TicketWithDetails {
     id: string
@@ -273,10 +274,14 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
                         {/* Actions */}
                         <div className="flex gap-3 mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-                            <Button variant="outline" className="flex-1">
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                            </Button>
+                            <DownloadTicketButton
+                                ticketId={ticket.id}
+                                eventTitle={event?.title || 'Event'}
+                                eventDate={event ? formatDate(event.start_date) : ''}
+                                eventLocation={[event?.venue_name, event?.city].filter(Boolean).join(', ')}
+                                ticketType={ticketType?.name || 'Ticket'}
+                                qrCodeData={ticket.qr_code_data}
+                            />
                             <Button variant="outline" className="flex-1">
                                 <Share2 className="h-4 w-4 mr-2" />
                                 Share

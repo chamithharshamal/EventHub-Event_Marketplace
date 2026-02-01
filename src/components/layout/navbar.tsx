@@ -17,6 +17,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
+import { ConfirmationModal } from '@/components/ui/confirmation-modal'
+import { logoutAction } from '@/app/actions/auth'
 
 export function Navbar() {
     const pathname = usePathname()
@@ -24,12 +26,41 @@ export function Navbar() {
     const { user, signOut } = useAuth()
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
     const [dropdownOpen, setDropdownOpen] = useState(false)
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-    const handleLogout = async () => {
-        await signOut()
-        setDropdownOpen(false)
+    // Triggered when user clicks "Logout" button
+    const handleLogoutClick = (e?: React.MouseEvent) => {
+        e?.preventDefault()
+        e?.stopPropagation()
+        setShowLogoutConfirm(true)
+        setDropdownOpen(false) // Close menus immediately for cleaner UI
         setMobileMenuOpen(false)
-        router.push('/')
+    }
+
+    // Triggered when user confirms in the modal
+    const performLogout = async () => {
+        setIsLoggingOut(true)
+
+        // Force logout after 2 seconds if server response hangs
+        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000))
+
+        try {
+            // Concurrent: Client-side storage clear + Server-side cookie clear
+            await Promise.race([
+                Promise.all([
+                    signOut(), // Client Supabase
+                    logoutAction() // Server Action Cookie Clear
+                ]),
+                timeoutPromise
+            ])
+        } catch (error) {
+            console.error('Logout error:', error)
+        } finally {
+            localStorage.clear()
+            sessionStorage.clear()
+            window.location.href = '/'
+        }
     }
 
     const isOrganizerOrAdmin = user?.role === 'admin' || user?.role === 'organizer'
@@ -183,7 +214,8 @@ export function Navbar() {
                                             </div>
                                             <div className="border-t border-slate-100 dark:border-slate-800 py-1">
                                                 <button
-                                                    onClick={handleLogout}
+                                                    type="button"
+                                                    onClick={handleLogoutClick}
                                                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400"
                                                 >
                                                     <LogOut className="h-4 w-4" />
@@ -271,7 +303,8 @@ export function Navbar() {
                                     </Link>
                                 )}
                                 <button
-                                    onClick={handleLogout}
+                                    type="button"
+                                    onClick={handleLogoutClick}
                                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                                 >
                                     <LogOut className="h-4 w-4" />
@@ -300,6 +333,16 @@ export function Navbar() {
                     </div>
                 </div>
             )}
+
+            <ConfirmationModal
+                isOpen={showLogoutConfirm}
+                onClose={() => setShowLogoutConfirm(false)}
+                onConfirm={performLogout}
+                title="Log Out"
+                description="Are you sure you want to log out of your account?"
+                confirmText="Log Out"
+                isLoading={isLoggingOut}
+            />
         </header>
     )
 }

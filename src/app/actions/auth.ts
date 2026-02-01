@@ -9,6 +9,13 @@ export async function signOut() {
     redirect('/login')
 }
 
+export async function logoutAction() {
+    const supabase = await createClient()
+    await supabase.auth.signOut()
+    // No redirect on server, let client handle navigation
+    return { success: true }
+}
+
 export async function getCurrentUser() {
     const supabase = await createClient()
 

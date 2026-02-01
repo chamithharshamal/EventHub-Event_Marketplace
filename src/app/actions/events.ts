@@ -172,6 +172,140 @@ export async function getMyEvents() {
     return data
 }
 
+// Enhanced create event action with tenant resolution and tickets
+export async function createEventAction(
+    formData: any,
+    ticketTypes: any[],
+    status: 'draft' | 'published'
+) {
+    const supabase = await createClient() as SupabaseAny
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+            return { success: false, error: 'Not authenticated' }
+        }
+
+        // Get user's profile to get tenant_id
+        let tenantId: string | null = null
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('id', user.id)
+            .single()
+
+        tenantId = profile?.tenant_id
+
+        // Tenant Resolution: If no tenant_id, find or create one
+        if (!tenantId) {
+            // 1. Try to find any existing tenant
+            const { data: tenants } = await supabase
+                .from('tenants')
+                .select('id')
+                .eq('email', user.email)
+                .limit(1)
+
+            if (tenants && tenants.length > 0) {
+                tenantId = tenants[0].id
+            } else {
+                // 2. Create a default tenant if none exists
+                const { data: newTenant, error: createError } = await supabase
+                    .from('tenants')
+                    .insert([{
+                        name: 'Default Organization',
+                        slug: `org-${Date.now()}`,
+                        email: user.email
+                    }])
+                    .select()
+                    .single()
+
+                if (createError) {
+                    return { success: false, error: 'Failed to create organization' }
+                }
+                tenantId = newTenant.id
+            }
+
+            // 3. Update profile with the tenantId
+            await supabase
+                .from('profiles')
+                .update({ tenant_id: tenantId })
+                .eq('id', user.id)
+        }
+
+        // Generate slug
+        const slugBase = slugify(formData.title || 'event')
+        const eventSlug = `${slugBase}-${generateId().slice(0, 5)}`
+
+        // Combine date and time into ISO strings
+        const startTimestamp = `${formData.start_date}T${formData.start_time}:00Z`
+        const endTimestamp = `${formData.end_date}T${formData.end_time}:00Z`
+
+        const eventData = {
+            title: formData.title,
+            slug: eventSlug,
+            description: formData.description || null,
+            category: formData.category || null,
+            venue_name: formData.venue_name || null,
+            address: formData.address || null,
+            city: formData.city || null,
+            country: formData.country || null,
+            is_online: formData.is_online,
+            stream_url: formData.is_online ? formData.stream_url : null,
+            start_date: startTimestamp,
+            end_date: endTimestamp,
+            timezone: formData.timezone,
+            banner_url: formData.banner_url || null,
+            max_capacity: formData.max_capacity ? parseInt(formData.max_capacity) : null,
+            is_private: formData.is_private,
+            refund_policy: formData.refund_policy || null,
+            status: status === 'published' ? 'pending_approval' : status,
+            organizer_id: user.id,
+            tenant_id: tenantId,
+        }
+
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .insert([eventData])
+            .select()
+            .single()
+
+        if (eventError) {
+            return { success: false, error: eventError.message }
+        }
+
+        // Insert tickets
+        if (ticketTypes.length > 0 && event) {
+            const ticketsToInsert = ticketTypes.map(t => ({
+                event_id: event.id,
+                name: t.name || 'General Admission',
+                description: t.description || null,
+                price: t.price || 0,
+                quantity_total: t.quantity || 0,
+                quantity_sold: 0,
+                currency: 'USD'
+            }))
+
+            const { error: ticketError } = await supabase
+                .from('ticket_types')
+                .insert(ticketsToInsert)
+
+            if (ticketError) {
+                console.error('Ticket creation failed:', ticketError)
+                return { success: true, eventId: event.id, warning: 'Event created but ticket creation failed' }
+            }
+        }
+
+        revalidatePath('/dashboard/events')
+        return { success: true, eventId: event.id }
+
+    } catch (error: any) {
+        console.error('Server action error:', error)
+        return { success: false, error: error.message }
+    }
+}
+
 export async function createEvent(formData: EventFormData) {
     const supabase = await createClient() as SupabaseAny
 

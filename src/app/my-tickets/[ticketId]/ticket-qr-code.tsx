@@ -11,6 +11,9 @@ export function TicketQRCode({ qrCodeData }: TicketQRCodeProps) {
     const [qrCodeUrl, setQrCodeUrl] = useState<string>('')
 
     useEffect(() => {
+        // DEV ONLY: Log QR data for testing
+        console.log('🎟️ TICKET QR DATA:', qrCodeData)
+
         generateQRCodeImage(qrCodeData).then(setQrCodeUrl)
     }, [qrCodeData])
 
@@ -19,10 +22,16 @@ export function TicketQRCode({ qrCodeData }: TicketQRCodeProps) {
     }
 
     return (
-        <img
-            src={qrCodeUrl}
-            alt="Ticket QR Code"
-            className="w-56 h-56"
-        />
+        <div className="flex flex-col items-center">
+            <img
+                src={qrCodeUrl}
+                alt="Ticket QR Code"
+                className="w-56 h-56"
+            />
+            {/* Hidden element for E2E testing to read the QR data */}
+            <div id="debug-qr-data" style={{ opacity: 0, height: 0, width: 0, overflow: 'hidden' }}>
+                {qrCodeData}
+            </div>
+        </div>
     )
 }

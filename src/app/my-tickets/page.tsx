@@ -217,7 +217,7 @@ function TicketCard({ ticket }: { ticket: TicketWithDetails }) {
                             </div>
                             <Link href={`/my-tickets/${ticket.id}`}>
                                 <Button variant="ghost" size="icon">
-                                    <ChevronRight className="h-5 w-5" />
+                                    <ChevronRight className="h-5 w-5 text-slate-400" />
                                 </Button>
                             </Link>
                         </div>

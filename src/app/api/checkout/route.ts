@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
+import { generateTickets } from '@/lib/tickets'
 
 // Lazy initialization to avoid build-time errors
 function getStripe(): Stripe {
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
             .insert({
                 user_id: user.id,
                 event_id: eventId,
+                tenant_id: event.tenant_id,
                 subtotal,
                 service_fee: serviceFee,
                 total,
@@ -139,7 +141,7 @@ export async function POST(request: NextRequest) {
         if (orderError) {
             console.error('Error creating order:', orderError)
             return NextResponse.json(
-                { error: 'Failed to create order' },
+                { error: 'Failed to create order: ' + orderError.message + ' (' + orderError.details + ')' },
                 { status: 500 }
             )
         }
@@ -197,87 +199,62 @@ export async function POST(request: NextRequest) {
         const stripe = getStripe()
 
         // Create Stripe Checkout Session
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: lineItems,
-            mode: 'payment',
-            success_url: `${process.env.NEXT_PUBLIC_APP_URL}/orders/${order.id}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/events/${event.slug}?canceled=true`,
-            customer_email: user.email || undefined,
-            metadata: {
-                order_id: order.id,
-                event_id: eventId,
-                user_id: user.id,
-            },
-            // If the organizer has a Stripe Connect account, use it
-            ...(event.tenants?.stripe_account_id && {
-                payment_intent_data: {
-                    application_fee_amount: Math.round(serviceFee * 100),
-                    transfer_data: {
-                        destination: event.tenants.stripe_account_id,
-                    },
+        try {
+            const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: lineItems,
+                mode: 'payment',
+                success_url: `${process.env.NEXT_PUBLIC_APP_URL}/orders/${order.id}/confirmation?session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/events/${event.slug}?canceled=true`,
+                customer_email: user.email || undefined,
+                metadata: {
+                    order_id: order.id,
+                    event_id: eventId,
+                    user_id: user.id,
                 },
-            }),
-        })
-
-        // Update order with Stripe session ID
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
-            .from('orders')
-            .update({
-                stripe_checkout_session_id: session.id,
+                // If the organizer has a Stripe Connect account, use it
+                ...(event.tenants?.stripe_account_id && {
+                    payment_intent_data: {
+                        application_fee_amount: Math.round(serviceFee * 100),
+                        transfer_data: {
+                            destination: event.tenants.stripe_account_id,
+                        },
+                    },
+                }),
             })
-            .eq('id', order.id)
 
-        return NextResponse.json({
-            success: true,
-            orderId: order.id,
-            checkoutUrl: session.url,
-        })
-    } catch (error) {
-        console.error('Checkout error:', error)
+            // Update order with Stripe session ID
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error: updateError } = await (supabase as any)
+                .from('orders')
+                .update({
+                    stripe_checkout_session_id: session.id,
+                })
+                .eq('id', order.id)
+
+            if (updateError) console.error('[Checkout] DB update failed:', updateError)
+
+            return NextResponse.json({
+                success: true,
+                orderId: order.id,
+                checkoutUrl: session.url,
+            })
+
+        } catch (stripeError: any) {
+            console.error('[Checkout] Stripe Error:', stripeError)
+            // Clean up the pending order? (Ideally yes, but for now just error)
+            return NextResponse.json(
+                { error: 'Stripe creation failed: ' + stripeError.message },
+                { status: 500 }
+            )
+        }
+    } catch (error: any) {
+        console.error('[Checkout] Fatal Error:', error)
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: 'Internal server error: ' + error.message },
             { status: 500 }
         )
     }
 }
 
-// Helper function to generate tickets
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function generateTickets(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any,
-    orderId: string,
-    eventId: string,
-    userId: string,
-    orderItems: Array<{
-        ticket_type_id: string
-        quantity: number
-    }>
-) {
-    const { generateQRCodeData, signQRCode } = await import('@/lib/qr')
-
-    const tickets = []
-
-    for (const item of orderItems) {
-        for (let i = 0; i < item.quantity; i++) {
-            const ticketId = crypto.randomUUID()
-            const qrData = generateQRCodeData(ticketId, eventId)
-            const qrSignature = signQRCode(qrData)
-
-            tickets.push({
-                id: ticketId,
-                event_id: eventId,
-                ticket_type_id: item.ticket_type_id,
-                order_id: orderId,
-                user_id: userId,
-                status: 'valid',
-                qr_code_data: qrData,
-                qr_signature: qrSignature,
-            })
-        }
-    }
-
-    await supabase.from('tickets').insert(tickets)
-}
+// Local helper removed - imported from @/lib/tickets

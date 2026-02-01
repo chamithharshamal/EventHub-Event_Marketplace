@@ -183,7 +183,7 @@ export default function AnalyticsPage() {
                                         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
                                             <Calendar className="h-4 w-4 text-violet-600" />
                                         </div>
-                                        <div className="ml-4 space-y-1 flex-1">
+                                        <div className="ml-4 space-y-1 flex-1 dark:text-slate-400">
                                             <p className="text-sm font-medium leading-none truncate">
                                                 {event.name}
                                             </p>

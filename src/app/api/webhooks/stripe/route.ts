@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { generateTickets } from '@/lib/tickets'
 
 // Lazy initialization to avoid build-time errors
 function getStripe(): Stripe {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
         )
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     try {
         switch (event.type) {
@@ -69,6 +70,10 @@ export async function POST(request: NextRequest) {
                     .from('order_items')
                     .select('ticket_type_id, quantity')
                     .eq('order_id', orderId)
+
+
+
+                // ... existing code ...
 
                 if (orderItems && orderItems.length > 0) {
                     // Generate tickets and send emails
@@ -122,101 +127,4 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// Helper function to generate tickets and send emails
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function generateTickets(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any,
-    orderId: string,
-    eventId: string,
-    userId: string,
-    orderItems: Array<{
-        ticket_type_id: string
-        quantity: number
-    }>,
-    customerEmail?: string | null
-) {
-    const { generateTicketQR } = await import('@/lib/qr')
-    const { sendEmail, generateTicketEmailHtml } = await import('@/lib/email')
-
-    // Get event details
-    const { data: event } = await supabase
-        .from('events')
-        .select('title, tenant_id, end_date')
-        .eq('id', eventId)
-        .single()
-
-    if (!event) return
-
-    const tickets = []
-    const emailPromises = []
-
-    // Get ticket types for names
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: ticketTypes } = await (supabase as any)
-        .from('ticket_types')
-        .select('id, name')
-        .in('id', orderItems.map(i => i.ticket_type_id))
-
-    const ticketTypeMap = new Map<string, string>(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ticketTypes?.map((t: any) => [t.id, t.name] as [string, string]) || []
-    )
-
-    for (const item of orderItems) {
-        const ticketTypeName = ticketTypeMap.get(item.ticket_type_id) || 'Ticket'
-
-        for (let i = 0; i < item.quantity; i++) {
-            const ticketId = crypto.randomUUID()
-
-            // Generate secure QR code
-            const { qrCodeData, qrSignature, qrImageDataUrl } = await generateTicketQR(
-                ticketId,
-                eventId,
-                event.tenant_id,
-                new Date(event.end_date)
-            )
-
-            tickets.push({
-                id: ticketId,
-                event_id: eventId,
-                ticket_type_id: item.ticket_type_id,
-                order_id: orderId,
-                user_id: userId,
-                status: 'valid',
-                qr_code_data: qrCodeData, // Now storing the full securely signed JSON payload
-                qr_signature: qrSignature,
-                tenant_id: event.tenant_id // Ensure tenant_id is included
-            })
-
-            // Queue email sending
-            if (customerEmail) {
-                emailPromises.push(async () => {
-                    try {
-                        const html = generateTicketEmailHtml(
-                            event.title,
-                            ticketTypeName,
-                            qrImageDataUrl,
-                            orderId
-                        )
-                        await sendEmail({
-                            to: customerEmail,
-                            subject: `Your Ticket for ${event.title}`,
-                            html,
-                        })
-                    } catch (error) {
-                        console.error('Failed to send email for ticket:', ticketId, error)
-                    }
-                })
-            }
-        }
-    }
-
-    // Insert tickets first
-    await supabase.from('tickets').insert(tickets)
-
-    // Send emails in background (wait for them but catch errors so webhook succeeds)
-    if (emailPromises.length > 0) {
-        await Promise.all(emailPromises.map(fn => fn()))
-    }
-}
+// Helper function removed - imported from @/lib/tickets

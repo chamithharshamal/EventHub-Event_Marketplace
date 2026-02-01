@@ -371,6 +371,34 @@ export function QRScanner({ eventId, onScanResult }: QRScannerProps) {
                     )}
                 </Button>
             </div>
+
+            {/* DEV ONLY: Manual Input for testing */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                <p className="text-xs text-slate-500 mb-2">Dev: Manual Check-in</p>
+                <div className="flex gap-2">
+                    <input
+                        className="flex-1 px-3 py-2 text-sm border rounded"
+                        placeholder="Paste QR data here..."
+                        onChange={(e) => {
+                            // Debounce or just wait for enter? 
+                            // Let's just add a button
+                        }}
+                        id="manual-qr-input"
+                    />
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                            const input = document.getElementById('manual-qr-input') as HTMLInputElement
+                            if (input && input.value) {
+                                validateQRCode(input.value)
+                            }
+                        }}
+                    >
+                        Simulate
+                    </Button>
+                </div>
+            </div>
         </div>
     )
 }

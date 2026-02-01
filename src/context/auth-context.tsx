@@ -37,22 +37,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: 'user',
         })
 
-        // Fetch full profile
+        // Check metadata first (fastest)
+        const metadataRole = supabaseUser.user_metadata?.role
+        if (metadataRole) {
+            console.log('[AuthContext] Role from metadata:', metadataRole)
+            setUser({
+                id: supabaseUser.id,
+                email: supabaseUser.email!,
+                full_name: supabaseUser.user_metadata?.full_name,
+                role: metadataRole
+            })
+            // Still try to fetch full profile for full_name if missing, but don't block
+            try {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', supabaseUser.id)
+                    .single()
+                if ((profile as any)?.full_name) {
+                    setUser(prev => prev ? ({ ...prev, full_name: (profile as any).full_name }) : null)
+                }
+            } catch (e) { console.error('Background profile fetch failed', e) }
+            return
+        }
+
+        // Fallback: Fetch full profile via RPC and table fallbacks
         try {
+            console.log('[AuthContext] Fetching role via RPC...')
+            const { data: roleData, error: roleError } = await supabase.rpc('get_user_role')
+            console.log('[AuthContext] RPC Result:', roleData, roleError)
+
+            let fullName = supabaseUser.user_metadata?.full_name
+
+            // Try to fetch profile for name if needed (non-blocking for role)
+            // We separate this so role isn't delayed by potential RLS hangs on table
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('role, full_name')
+                .select('full_name')
                 .eq('id', supabaseUser.id)
                 .single()
 
-            if (profile) {
-                setUser({
-                    id: supabaseUser.id,
-                    email: supabaseUser.email!,
-                    full_name: (profile as any)?.full_name || supabaseUser.user_metadata?.full_name,
-                    role: (profile as any)?.role || 'user',
-                })
+            if ((profile as any)?.full_name) {
+                fullName = (profile as any).full_name
             }
+
+            const role = (roleData as unknown as string) || 'user'
+
+            setUser({
+                id: supabaseUser.id,
+                email: supabaseUser.email!,
+                full_name: fullName,
+                role: role,
+            })
+
+            console.log('[AuthContext] Final User State:', { email: supabaseUser.email, role })
+
         } catch (err) {
             console.error('[AuthContext] Profile fetch error:', err)
         }
@@ -60,9 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const refreshUser = async () => {
         const supabase = getSupabaseClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-            await fetchProfile(session.user)
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            await fetchProfile(user)
         }
     }
 
@@ -84,9 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Initial session check
         const checkSession = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession()
-                if (session?.user) {
-                    await fetchProfile(session.user)
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    await fetchProfile(user)
                 }
             } catch (err) {
                 console.error('[AuthContext] Initial session check error:', err)

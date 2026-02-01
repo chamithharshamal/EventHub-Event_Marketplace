@@ -77,6 +77,10 @@ interface OrderConfirmationPageProps {
     params: Promise<{ orderId: string }>
 }
 
+import { verifyOrderAction } from '@/app/orders/actions'
+
+// ...
+
 export default async function OrderConfirmationPage({ params }: OrderConfirmationPageProps) {
     const { orderId } = await params
     const supabase = await createClient()
@@ -86,7 +90,19 @@ export default async function OrderConfirmationPage({ params }: OrderConfirmatio
         redirect('/login')
     }
 
-    const order = await getOrder(orderId, user.id)
+    let order = await getOrder(orderId, user.id)
+
+    // Fallback: If no tickets but order exists, try to verify payment and generate tickets
+    if (order && order.tickets.length === 0 && order.status !== 'failed') {
+        console.log('[ConfirmationPage] No tickets found, verifying order...', orderId)
+        const result = await verifyOrderAction(orderId)
+        console.log('[ConfirmationPage] Verification result:', result)
+
+        if (result.success) {
+            // Re-fetch order
+            order = await getOrder(orderId, user.id)
+        }
+    }
 
     if (!order) {
         notFound()

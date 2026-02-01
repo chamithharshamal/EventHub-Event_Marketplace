@@ -39,8 +39,8 @@ export function CheckoutButton({ eventId, eventSlug, ticketTypes, disabled }: Ch
 
             const data = await res.json()
 
-            if (data.url) {
-                window.location.href = data.url
+            if (data.checkoutUrl) {
+                window.location.href = data.checkoutUrl
             } else {
                 console.error('Checkout failed:', data.error)
                 alert(data.error || 'Checkout failed. Please try again.')

@@ -63,7 +63,10 @@ export function Navbar() {
         }
     }
 
-    const isOrganizerOrAdmin = user?.role === 'admin' || user?.role === 'organizer'
+    // Ensure role check is case-insensitive and safe
+    const userRole = user?.role?.toLowerCase() || 'user'
+    console.log('[Navbar] User:', user?.email, 'Role:', userRole)
+    const isOrganizerOrAdmin = userRole === 'admin' || userRole === 'organizer'
 
     const navLinks = [
         { href: '/events', label: 'Discover Events', icon: CalendarDays },

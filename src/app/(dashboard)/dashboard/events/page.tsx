@@ -251,7 +251,7 @@ export default async function EventsManagementPage() {
                                                 <div className="mt-4">
                                                     <div className="flex items-center justify-between text-sm mb-1">
                                                         <span className="text-slate-500">Tickets sold</span>
-                                                        <span className="font-medium">{soldEventTickets}/{totalEventTickets}</span>
+                                                        <span className="font-medium dark:text-slate-400">{soldEventTickets}/{totalEventTickets}</span>
                                                     </div>
                                                     <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700">
                                                         <div
@@ -263,7 +263,7 @@ export default async function EventsManagementPage() {
                                             </div>
 
                                             {/* Actions */}
-                                            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4">
+                                            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 dark:text-slate-400">
                                                 <div className="flex items-center gap-2">
                                                     <Link href={`/dashboard/events/${event.id}/checkin`}>
                                                         <Button variant="ghost" size="icon" title="Check-in App">

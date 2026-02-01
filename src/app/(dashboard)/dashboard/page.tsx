@@ -162,7 +162,7 @@ export default function DashboardPage() {
                                 )}
                             </CardContent>
                         </Card>
-                        <Card className="col-span-3">
+                        <Card className="col-span-3 dark:text-slate-400">
                             <CardHeader>
                                 <CardTitle>Recent Sales</CardTitle>
                                 <CardDescription>

@@ -175,7 +175,7 @@ export default async function OrdersPage() {
                                 </thead>
                                 <tbody>
                                     {orders.map((order) => (
-                                        <tr key={order.id} className="border-b border-slate-100 dark:border-slate-800">
+                                        <tr key={order.id} className="border-b border-slate-100 dark:border-slate-800 dark:text-slate-400">
                                             <td className="px-4 py-4 text-sm font-mono">
                                                 {order.id.slice(0, 8)}...
                                             </td>

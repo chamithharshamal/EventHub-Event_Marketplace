@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { createClient } from '@/lib/supabase/client'
+import { createEventAction } from '@/app/actions/events'
 import { Badge } from '@/components/ui/badge'
 
 const categories = [
@@ -95,154 +95,24 @@ export default function CreateEventPage() {
         setIsLoading(true);
 
         try {
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
+            console.log('Submitting event via Server Action...');
+            const result = await createEventAction(formData, ticketTypes, status);
 
-            if (!session) {
-                alert('You must be logged in to create an event');
-                router.push('/login');
+            if (!result.success) {
+                console.error('Event creation failed:', result.error);
+                alert(`Failed to create event: ${result.error}`);
                 return;
             }
 
-            // Get user's profile to get tenant_id
-            let profileData: any = null;
-            const { data: profile, error: profileError } = await (supabase as any)
-                .from('profiles')
-                .select('tenant_id')
-                .eq('id', session.user.id)
-                .single();
-
-            profileData = profile;
-
-            if (profileError && profileError.code !== 'PGRST116') { // PGRST116 is "no rows"
-                console.error('Profile fetch error:', profileError);
-                alert('Your account profile could not be loaded. Please try logging in again.');
-                return;
+            console.log('✅ Event created successfully:', result.eventId);
+            if (result.warning) {
+                alert(`Event created but with warnings: ${result.warning}`);
             }
 
-            let tenantId = profileData?.tenant_id;
-
-            // Tenant Resolution: If no tenant_id, find or create one
-            if (!tenantId) {
-                console.log('No tenant_id found, resolving...');
-
-                // 1. Try to find any existing tenant
-                const { data: tenants, error: tenantError } = await (supabase as any)
-                    .from('tenants')
-                    .select('id')
-                    .limit(1);
-
-                if (tenants && tenants.length > 0) {
-                    tenantId = tenants[0].id;
-                    console.log('Using existing tenant:', tenantId);
-                } else {
-                    // 2. Create a default tenant if none exists
-                    console.log('Creating default tenant...');
-                    const { data: newTenant, error: createError } = await (supabase as any)
-                        .from('tenants')
-                        .insert([{
-                            name: 'Default Organization',
-                            slug: 'default-org',
-                            email: session.user.email
-                        }])
-                        .select()
-                        .single();
-
-                    if (createError) {
-                        console.error('Tenant creation failed:', createError);
-                        alert('Could not create an organization for you. Please contact support.');
-                        return;
-                    }
-                    tenantId = newTenant.id;
-                    console.log('Created new tenant:', tenantId);
-                }
-
-                // 3. Update profile with the tenantId
-                const { error: updateError } = await (supabase as any)
-                    .from('profiles')
-                    .update({ tenant_id: tenantId })
-                    .eq('id', session.user.id);
-
-                if (updateError) {
-                    console.error('Profile update failed:', updateError);
-                    // We can still try to proceed if we have a tenantId from above, 
-                    // but it might cause RLS issues later.
-                }
-            }
-
-            // Generate slug
-            const slug = formData.title
-                .toLowerCase()
-                .replace(/[^\w\s-]/g, '')
-                .replace(/\s+/g, '-');
-
-            // Combine date and time into ISO strings
-            const startTimestamp = `${formData.start_date}T${formData.start_time}:00Z`;
-            const endTimestamp = `${formData.end_date}T${formData.end_time}:00Z`;
-
-            const eventData = {
-                title: formData.title,
-                slug: `${slug}-${Math.random().toString(36).substring(2, 7)}`,
-                description: formData.description || null,
-                category: formData.category || null,
-                venue_name: formData.venue_name || null,
-                address: formData.address || null,
-                city: formData.city || null,
-                country: formData.country || null,
-                is_online: formData.is_online,
-                stream_url: formData.is_online ? formData.stream_url : null,
-                start_date: startTimestamp,
-                end_date: endTimestamp,
-                timezone: formData.timezone,
-                banner_url: formData.banner_url || null,
-                max_capacity: formData.max_capacity ? parseInt(formData.max_capacity) : null,
-                is_private: formData.is_private,
-                refund_policy: formData.refund_policy || null,
-                status: status === 'published' ? 'pending_approval' : status,
-                organizer_id: session.user.id,
-                tenant_id: tenantId,
-            };
-
-            const { data, error } = await (supabase as any)
-                .from('events')
-                .insert([eventData])
-                .select()
-                .single();
-
-            if (error) {
-                console.error('❌ Event insert failed:', error);
-                alert(`Failed to create event: ${error.message}`);
-                return;
-            }
-
-            const createdEventId = (data as any).id;
-            console.log('✅ Event created', data);
-
-            // If we have tickets, we should ideally insert them too
-            if (ticketTypes.length > 0 && data) {
-                const ticketsToInsert = ticketTypes.map(t => ({
-                    event_id: createdEventId,
-                    name: t.name || 'General Admission',
-                    description: t.description || null,
-                    price: t.price || 0,
-                    quantity_total: t.quantity || 0,
-                    quantity_sold: 0,
-                    currency: 'USD'
-                }));
-
-                console.log('Inserting tickets:', ticketsToInsert);
-
-                const { error: ticketError } = await (supabase as any)
-                    .from('ticket_types')
-                    .insert(ticketsToInsert);
-
-                if (ticketError) {
-                    console.error('❌ Ticket creation failed:', ticketError);
-                    alert('Event created, but ticket types failed to save.');
-                }
-            }
-
+            // Redirect is handled by client router for smoother experience than server redirect
             router.push('/dashboard/events');
+            router.refresh();
+
         } catch (e) {
             console.error('Unexpected error while creating event:', e);
             alert('An unexpected error occurred. Please try again.');

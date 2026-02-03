@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Settings, User, Bell, Shield, CreditCard, Save, ExternalLink, Globe } from 'lucide-react'
 import { getCurrentUserProfile, updateProfile } from '@/app/actions/profile'
+import { ImageUpload } from '@/components/ui/image-upload'
 
 interface Profile {
     id: string
@@ -34,6 +35,7 @@ export default function SettingsPage() {
     const [location, setLocation] = useState('')
     const [website, setWebsite] = useState('')
     const [phone, setPhone] = useState('')
+    const [avatarUrl, setAvatarUrl] = useState('')
     const [isPublic, setIsPublic] = useState(false)
 
     useEffect(() => {
@@ -47,6 +49,7 @@ export default function SettingsPage() {
                 setLocation(profile.location || '')
                 setWebsite(profile.website || '')
                 setPhone(profile.phone || '')
+                setAvatarUrl(profile.avatar_url || '')
                 setIsPublic(profile.is_public || false)
             }
             setLoading(false)
@@ -65,6 +68,7 @@ export default function SettingsPage() {
             location: location || undefined,
             website: website || undefined,
             is_public: isPublic,
+            avatar_url: avatarUrl || undefined,
         })
 
         if (result.success) {
@@ -101,8 +105,8 @@ export default function SettingsPage() {
             {/* Message */}
             {message && (
                 <div className={`p-4 rounded-lg ${message.type === 'success'
-                        ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                        : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                    ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                    : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
                     }`}>
                     {message.text}
                 </div>
@@ -145,7 +149,22 @@ export default function SettingsPage() {
                                 Update your personal information and public profile
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-6">
+                            {/* Avatar Upload */}
+                            <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+                                <ImageUpload
+                                    value={avatarUrl}
+                                    onChange={(url) => setAvatarUrl(url)}
+                                    onRemove={() => setAvatarUrl('')}
+                                />
+                                <div className="flex-1 text-center sm:text-left">
+                                    <h3 className="font-medium text-slate-900 dark:text-white">Profile Photo</h3>
+                                    <p className="text-sm text-slate-500 max-w-sm mt-1">
+                                        This will be displayed on your profile and in search results.
+                                    </p>
+                                </div>
+                            </div>
+
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
                                     <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">Full Name</label>

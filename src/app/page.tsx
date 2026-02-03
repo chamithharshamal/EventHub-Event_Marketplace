@@ -76,10 +76,21 @@ export default function HomePage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden">
-          {/* Background gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-50 via-white to-indigo-50 dark:from-violet-950/50 dark:via-slate-950 dark:to-indigo-950/50" />
-          <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-[0.02]" />
+        <section className="relative overflow-hidden min-h-[90vh] flex items-center">
+          {/* Enhanced background with animated elements */}
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-50 via-white to-indigo-50 dark:from-slate-950 dark:via-violet-950/20 dark:to-slate-950" />
+
+          {/* Animated floating orbs */}
+          <div className="absolute top-20 left-10 w-72 h-72 bg-violet-400/30 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-40 right-20 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl animate-pulse animation-delay-2000" />
+          <div className="absolute bottom-20 left-1/4 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl animate-pulse animation-delay-4000" />
+          <div className="absolute -bottom-10 right-1/3 w-80 h-80 bg-violet-500/15 rounded-full blur-3xl animate-pulse" />
+
+          {/* Grid pattern overlay */}
+          <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-30 dark:opacity-10" />
+
+          {/* Gradient mesh */}
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent dark:from-slate-950" />
 
           <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
             <div className="text-center">
@@ -167,6 +178,104 @@ export default function HomePage() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Gallery Section */}
+        <section className="py-24 bg-slate-50 dark:bg-slate-900/50">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+                Events that inspire
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600 dark:text-slate-400">
+                From intimate workshops to massive festivals — see what&apos;s possible with EventHub.
+              </p>
+            </div>
+
+            {/* Masonry-style Gallery Grid */}
+            <div className="mt-16 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {/* Large feature image */}
+              <div className="col-span-2 row-span-2 relative group overflow-hidden rounded-2xl">
+                <img
+                  src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80"
+                  alt="Tech Conference"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4">
+                  <span className="inline-block px-3 py-1 rounded-full bg-violet-500/90 text-white text-xs font-medium mb-2">Conference</span>
+                  <h3 className="text-xl font-bold text-white">Tech Summit 2026</h3>
+                  <p className="text-white/80 text-sm mt-1">5,000+ attendees</p>
+                </div>
+              </div>
+
+              {/* Concert */}
+              <div className="relative group overflow-hidden rounded-2xl aspect-square">
+                <img
+                  src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&q=80"
+                  alt="Live Concert"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-3 left-3">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-pink-500/90 text-white text-xs font-medium">Concert</span>
+                </div>
+              </div>
+
+              {/* Workshop */}
+              <div className="relative group overflow-hidden rounded-2xl aspect-square">
+                <img
+                  src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=400&q=80"
+                  alt="Workshop"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-3 left-3">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-500/90 text-white text-xs font-medium">Workshop</span>
+                </div>
+              </div>
+
+              {/* Festival */}
+              <div className="relative group overflow-hidden rounded-2xl aspect-square">
+                <img
+                  src="https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&q=80"
+                  alt="Music Festival"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-3 left-3">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-orange-500/90 text-white text-xs font-medium">Festival</span>
+                </div>
+              </div>
+
+              {/* Sports */}
+              <div className="relative group overflow-hidden rounded-2xl aspect-square">
+                <img
+                  src="https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&q=80"
+                  alt="Sport Event"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-3 left-3">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-blue-500/90 text-white text-xs font-medium">Sports</span>
+                </div>
+              </div>
+
+              {/* Wide networking image */}
+              <div className="col-span-2 relative group overflow-hidden rounded-2xl aspect-video">
+                <img
+                  src="https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80"
+                  alt="Networking Event"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute bottom-4 left-4">
+                  <span className="inline-block px-3 py-1 rounded-full bg-indigo-500/90 text-white text-xs font-medium mb-2">Networking</span>
+                  <h3 className="text-lg font-bold text-white">Industry Meetups</h3>
+                </div>
+              </div>
             </div>
           </div>
         </section>

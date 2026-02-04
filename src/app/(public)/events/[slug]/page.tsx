@@ -19,6 +19,7 @@ import { CheckoutButton } from '@/components/checkout/checkout-button'
 import { VerifiedBadge } from '@/components/ui/verified-badge'
 import { WaitlistButton } from '@/components/events/WaitlistButton'
 import { FavoriteButton } from '@/components/events/FavoriteButton'
+import { EventCountdown } from '@/components/events/EventCountdown'
 import { isFavorited } from '@/app/actions/favorites'
 
 interface EventPageProps {
@@ -199,6 +200,13 @@ export default async function EventPage({ params }: EventPageProps) {
                 <div className="grid gap-8 lg:grid-cols-3">
                     {/* Event Details */}
                     <div className="lg:col-span-2 space-y-8">
+                        {/* Countdown Timer */}
+                        <Card className="bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/50 dark:to-indigo-950/50 border-violet-200 dark:border-violet-800">
+                            <CardContent className="p-6">
+                                <EventCountdown startDate={event.start_date} />
+                            </CardContent>
+                        </Card>
+
                         {/* Description */}
                         <Card>
                             <CardHeader>

@@ -9,9 +9,9 @@ export async function switchToOrganizer(userId: string, email: string) {
     console.log('[switchToOrganizer] Starting role switch for user:', userId)
 
     // 2. Grant 'organizer' role in profiles table (database level)
-    const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ role: 'organizer' } as any)
+    const { error: profileError } = await (supabase
+        .from('profiles') as any)
+        .update({ role: 'organizer' })
         .eq('id', userId)
 
     if (profileError) {

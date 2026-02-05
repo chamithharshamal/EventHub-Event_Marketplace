@@ -94,11 +94,6 @@ export default function HomePage() {
 
           <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
             <div className="text-center">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-4 py-1.5 text-sm font-medium text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
-                <Zap className="h-4 w-4" />
-                Launching Soon — Join the Waitlist
-              </div>
 
               {/* Headline */}
               <h1 className="mt-8 text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-6xl lg:text-7xl">

@@ -18,8 +18,8 @@ export async function verifyOrderAction(orderId: string) {
     const supabase = createAdminClient()
 
     // 1. Fetch order
-    const { data: order } = await supabase
-        .from('orders')
+    const { data: order } = await (supabase
+        .from('orders') as any)
         .select('*')
         .eq('id', orderId)
         .single()
@@ -52,8 +52,8 @@ export async function verifyOrderAction(orderId: string) {
 
             // 3. Update Order Status if needed
             if (order.status !== 'completed') {
-                await supabase
-                    .from('orders')
+                await (supabase
+                    .from('orders') as any)
                     .update({
                         status: 'completed',
                         stripe_payment_intent_id: session.payment_intent as string,
@@ -63,8 +63,8 @@ export async function verifyOrderAction(orderId: string) {
             }
 
             // 4. Generate Tickets
-            const { data: orderItems } = await supabase
-                .from('order_items')
+            const { data: orderItems } = await (supabase
+                .from('order_items') as any)
                 .select('ticket_type_id, quantity')
                 .eq('order_id', orderId)
 
@@ -80,7 +80,7 @@ export async function verifyOrderAction(orderId: string) {
 
                 // Update ticket sold counts
                 for (const item of orderItems) {
-                    await supabase.rpc('increment_tickets_sold', {
+                    await (supabase.rpc as any)('increment_tickets_sold', {
                         p_ticket_type_id: item.ticket_type_id,
                         p_quantity: item.quantity,
                     })

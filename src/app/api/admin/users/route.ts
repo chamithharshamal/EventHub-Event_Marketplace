@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: result.error }, { status: 400 })
         }
 
-        return NextResponse.json({ success: true, data: result.data, message: result.message })
+        return NextResponse.json({ success: true, data: result.data, message: (result as { message?: string }).message })
     } catch (error) {
         console.error('Admin users PATCH error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

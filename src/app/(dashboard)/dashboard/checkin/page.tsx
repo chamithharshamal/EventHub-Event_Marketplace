@@ -1,7 +1,7 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import {
     QrCode,
-    Users,
     CheckCircle,
     Clock,
     Calendar,
@@ -12,43 +12,82 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
 
-// Mock events data
-const mockEvents = [
-    {
-        id: 'evt_001',
-        title: 'Tech Innovation Summit 2026',
-        start_date: '2026-02-15T09:00:00Z',
-        venue_name: 'Moscone Center',
-        city: 'San Francisco',
-        status: 'published',
-        totalTickets: 380,
-        checkedIn: 127,
-    },
-    {
-        id: 'evt_002',
-        title: 'AI Workshop Series',
-        start_date: '2026-03-10T10:00:00Z',
-        venue_name: 'Tech Hub',
-        city: 'New York',
-        status: 'published',
-        totalTickets: 50,
-        checkedIn: 0,
-    },
-    {
-        id: 'evt_003',
-        title: 'Startup Networking Night',
-        start_date: '2026-02-20T18:30:00Z',
-        venue_name: 'Innovation Center',
-        city: 'Austin',
-        status: 'published',
-        totalTickets: 67,
-        checkedIn: 0,
-    },
-]
+interface EventWithCounts {
+    id: string
+    title: string
+    start_date: string
+    venue_name: string | null
+    city: string | null
+    status: string
+    totalTickets: number
+    checkedIn: number
+}
 
-export default function CheckinEventsPage() {
-    const events = mockEvents
+async function getOrganizerEvents(): Promise<EventWithCounts[]> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return []
+
+    // Get organizer's events with ticket counts
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: events, error } = await (supabase as any)
+        .from('events')
+        .select(`
+            id,
+            title,
+            start_date,
+            venue_name,
+            city,
+            status
+        `)
+        .eq('organizer_id', user.id)
+        .eq('status', 'published')
+        .order('start_date', { ascending: true })
+
+    if (error || !events) return []
+
+    // Get ticket counts for each event
+    const eventsWithCounts = await Promise.all(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (events as any[]).map(async (event: any) => {
+            // Get total tickets sold
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { count: totalTickets } = await (supabase as any)
+                .from('tickets')
+                .select('*', { count: 'exact', head: true })
+                .eq('event_id', event.id)
+
+            // Get checked-in count
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { count: checkedIn } = await (supabase as any)
+                .from('tickets')
+                .select('*', { count: 'exact', head: true })
+                .eq('event_id', event.id)
+                .eq('checked_in', true)
+
+            return {
+                ...event,
+                totalTickets: totalTickets || 0,
+                checkedIn: checkedIn || 0
+            } as EventWithCounts
+        })
+    )
+
+    return eventsWithCounts
+}
+
+export default async function CheckinEventsPage() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        redirect('/login')
+    }
+
+    const events = await getOrganizerEvents()
 
     return (
         <div className="space-y-8">

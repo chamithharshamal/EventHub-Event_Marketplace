@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { EventFilters, EventFiltersSidebar, EventSortDropdown, ActiveFilters } from '@/components/events/EventFilters'
-import { MOCK_EVENTS } from '@/lib/mock-data'
 
 interface Event {
     id: string
@@ -135,8 +134,9 @@ async function getEvents(searchParams: SearchParams) {
                 .lte('start_date', dateRange.end.toISOString())
         }
     } else {
-        // By default, only show upcoming events
-        query = query.gte('start_date', new Date().toISOString())
+        // By default, show all events (including past ones) to display real data
+        // Remove this line to only show upcoming events:
+        // query = query.gte('start_date', new Date().toISOString())
     }
 
     // Apply location filter
@@ -169,26 +169,10 @@ async function getEvents(searchParams: SearchParams) {
 
     if (error) {
         console.error('Error fetching events:', error)
+        return { events: [], totalCount: 0, totalPages: 0 }
     }
 
     let filteredEvents = (events || []) as Event[]
-
-    // Use mock data if (no events found OR error) and no specific filters are applied
-    const hasActiveFilters = searchParams.q ||
-        (searchParams.category && searchParams.category !== 'all') ||
-        (searchParams.date && searchParams.date !== 'all') ||
-        searchParams.location ||
-        (searchParams.price && searchParams.price !== 'all')
-
-    let usedMockData = false
-    if ((filteredEvents.length === 0 || error) && !hasActiveFilters && page === 1) {
-        // Cast mock data to compatible Event type (mock data might be simpler)
-        filteredEvents = MOCK_EVENTS as unknown as Event[]
-        usedMockData = true
-    } else if (error) {
-        // If error and we didn't use mock data (e.g. filters active), return empty now
-        return { events: [], totalCount: 0, totalPages: 0 }
-    }
 
     // Apply price filter (post-query since it depends on ticket_types)
     if (searchParams.price && searchParams.price !== 'all') {
@@ -216,7 +200,7 @@ async function getEvents(searchParams: SearchParams) {
         })
     }
 
-    const totalCount = usedMockData ? MOCK_EVENTS.length : (count || 0)
+    const totalCount = count || 0
     const totalPages = Math.ceil(totalCount / EVENTS_PER_PAGE)
 
     return { events: filteredEvents, totalCount, totalPages, currentPage: page }

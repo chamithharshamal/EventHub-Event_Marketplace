@@ -20,6 +20,7 @@ import { VerifiedBadge } from '@/components/ui/verified-badge'
 import { WaitlistButton } from '@/components/events/WaitlistButton'
 import { FavoriteButton } from '@/components/events/FavoriteButton'
 import { EventCountdown } from '@/components/events/EventCountdown'
+import { AddToCalendar } from '@/components/events/AddToCalendar'
 import { isFavorited } from '@/app/actions/favorites'
 
 interface EventPageProps {
@@ -395,6 +396,13 @@ export default async function EventPage({ params }: EventPageProps) {
                                     className="flex-1"
                                 />
                             </div>
+                            <AddToCalendar
+                                title={event.title}
+                                description={event.description || undefined}
+                                location={event.is_online ? 'Online Event' : [event.venue_name, event.address, event.city, event.country].filter(Boolean).join(', ')}
+                                startDate={event.start_date}
+                                endDate={event.end_date}
+                            />
                         </div>
                     </div>
                 </div>

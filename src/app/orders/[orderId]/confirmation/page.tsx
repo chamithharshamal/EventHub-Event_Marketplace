@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/server'
 import { DownloadOrderButton } from './download-order-button'
+import { AddToCalendar } from '@/components/events/AddToCalendar'
 
 interface OrderWithDetails {
     id: string
@@ -256,6 +257,18 @@ export default async function OrderConfirmationPage({ params }: OrderConfirmatio
                     <Mail className="inline h-4 w-4 mr-1" />
                     A confirmation email has been sent to your email address
                 </p>
+
+                {/* Add to Calendar */}
+                {event && (
+                    <div className="flex justify-center mt-4">
+                        <AddToCalendar
+                            title={event.title}
+                            location={[event.venue_name, event.city].filter(Boolean).join(', ')}
+                            startDate={event.start_date}
+                            endDate={event.start_date}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     )

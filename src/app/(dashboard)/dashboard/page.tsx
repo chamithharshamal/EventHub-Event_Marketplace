@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DollarSign, CreditCard, Activity, Users, Download, ArrowUpRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { downloadSalesCSV } from '@/lib/export'
+import { SkeletonChart, SkeletonSalesList } from '@/components/ui/skeleton'
 
 interface AnalyticsData {
     totalRevenue: number
@@ -154,9 +155,7 @@ export default function DashboardPage() {
                             </CardHeader>
                             <CardContent className="pl-2">
                                 {loading ? (
-                                    <div className="flex h-[350px] items-center justify-center dark:text-white">
-                                        Loading...
-                                    </div>
+                                    <SkeletonChart />
                                 ) : (
                                     <Overview data={data?.salesData || []} />
                                 )}
@@ -171,9 +170,7 @@ export default function DashboardPage() {
                             </CardHeader>
                             <CardContent>
                                 {loading ? (
-                                    <div className="flex h-[300px] items-center justify-center dark:text-white">
-                                        Loading...
-                                    </div>
+                                    <SkeletonSalesList />
                                 ) : data?.recentSales && data.recentSales.length > 0 ? (
                                     <RecentSales sales={data.recentSales} />
                                 ) : (

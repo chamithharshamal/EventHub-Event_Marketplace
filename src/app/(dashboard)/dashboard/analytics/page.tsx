@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { DollarSign, ShoppingCart, Users, TrendingUp, Download, Calendar } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { downloadSalesCSV } from '@/lib/export'
+import { SkeletonChart, SkeletonSalesList } from '@/components/ui/skeleton'
 
 interface AnalyticsData {
     totalRevenue: number
@@ -156,9 +157,7 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent className="pl-2">
                         {loading ? (
-                            <div className="flex h-[350px] items-center justify-center dark:text-white">
-                                Loading...
-                            </div>
+                            <SkeletonChart />
                         ) : (
                             <Overview data={data?.salesData || []} />
                         )}
@@ -173,9 +172,7 @@ export default function AnalyticsPage() {
                     </CardHeader>
                     <CardContent>
                         {loading ? (
-                            <div className="flex h-[350px] items-center justify-center dark:text-white">
-                                Loading...
-                            </div>
+                            <SkeletonSalesList />
                         ) : data?.topEvents && data.topEvents.length > 0 ? (
                             <div className="space-y-4">
                                 {data.topEvents.map((event, index) => (
